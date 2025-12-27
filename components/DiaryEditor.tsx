@@ -39,6 +39,16 @@ const formatDateShort = (d: Date): string => {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 };
 
+const formatDateTime = (isoStr: string): string => {
+  const d = new Date(isoStr);
+  const year = d.getFullYear();
+  const month = d.getMonth() + 1;
+  const day = d.getDate();
+  const hour = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${year}/${month}/${day} ${hour}:${min}`;
+};
+
 const generateTitle = (content: string): string => {
   if (!content.trim()) return "";
   const firstLine = content.split("\n")[0].trim();
@@ -78,6 +88,8 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   const [location, setLocation] = useState<Location | null>(null);
   const [weather, setWeather] = useState<Weather | null>(null);
   const [isLoadingWeather, setIsLoadingWeather] = useState(false);
+  const [createdAt, setCreatedAt] = useState<string | null>(null);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [isMetaExpanded, setIsMetaExpanded] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -88,6 +100,8 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   // Track if date or location has been changed by user (to trigger weather fetch)
   const [shouldFetchWeather, setShouldFetchWeather] = useState(false);
+  // Cooldown for weather refresh (prevent DDoS)
+  const [weatherCooldown, setWeatherCooldown] = useState(false);
 
   // Ref for debounced save
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -150,6 +164,8 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
               shortName: d.location_city ?? undefined,
             });
           }
+          setCreatedAt(d.created_at);
+          setUpdatedAt(d.updated_at);
           // Set initial saved state
           lastSavedRef.current = {
             title: d.title,
@@ -193,6 +209,9 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
       } finally {
         setIsLoadingWeather(false);
         setShouldFetchWeather(false);
+        // Start cooldown
+        setWeatherCooldown(true);
+        setTimeout(() => setWeatherCooldown(false), 10000);
       }
     };
     fetchWeather();
@@ -220,13 +239,17 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
       if (!hasChanges) return;
     }
 
+    const now = new Date().toISOString();
     if (diaryDbId) {
       // Update existing
       await updateDiary(diaryDbId, currentTitle, currentDate, currentContent, location, weather);
+      setUpdatedAt(now);
     } else {
       // Create new
       const newDiary = await createDiary(currentTitle, currentDate, currentContent, location ?? undefined, weather ?? undefined);
       setDiaryDbId(newDiary.id);
+      setCreatedAt(now);
+      setUpdatedAt(now);
     }
 
     // Update last saved state
@@ -423,6 +446,17 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
                 <Text style={styles.weatherTextMuted}>-</Text>
               )}
             </View>
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={() => setShouldFetchWeather(true)}
+              disabled={isLoadingWeather || !location || weatherCooldown}
+            >
+              <Ionicons
+                name="refresh"
+                size={18}
+                color={isLoadingWeather || !location || weatherCooldown ? "#ccc" : "#007AFF"}
+              />
+            </TouchableOpacity>
           </View>
 
           {/* Title */}
@@ -445,6 +479,18 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Timestamps */}
+          {(createdAt || updatedAt) && (
+            <View style={styles.timestampsContainer}>
+              {createdAt && (
+                <Text style={styles.timestampText}>作成: {formatDateTime(createdAt)}</Text>
+              )}
+              {updatedAt && (
+                <Text style={styles.timestampText}>更新: {formatDateTime(updatedAt)}</Text>
+              )}
+            </View>
+          )}
         </View>
       )}
 
@@ -587,6 +633,19 @@ const styles = StyleSheet.create({
   },
   weatherTextMuted: {
     fontSize: 14,
+    color: "#999",
+  },
+  refreshButton: {
+    padding: 8,
+  },
+  timestampsContainer: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 16,
+    marginTop: 4,
+  },
+  timestampText: {
+    fontSize: 12,
     color: "#999",
   },
   contentInput: {
