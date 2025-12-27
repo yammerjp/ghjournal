@@ -13,5 +13,10 @@
     "version": 3,
     "description": "Add title column",
     "sql": "ALTER TABLE diaries ADD COLUMN title TEXT NOT NULL DEFAULT ''"
+  },
+  {
+    "version": 4,
+    "description": "Add location columns (latitude, longitude, location_name)",
+    "sql": "ALTER TABLE diaries ADD COLUMN latitude REAL; ALTER TABLE diaries ADD COLUMN longitude REAL; ALTER TABLE diaries ADD COLUMN location_name TEXT"
   }
 ]

@@ -1,28 +1,45 @@
 import * as Crypto from 'expo-crypto';
 import { getDatabase } from './database';
 
+export interface Location {
+  latitude: number;
+  longitude: number;
+  name?: string;
+}
+
 export interface Diary {
   id: string;
   title: string;
   date: string;
   content: string;
+  latitude: number | null;
+  longitude: number | null;
+  location_name: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export async function createDiary(title: string, date: string, content: string): Promise<Diary> {
+export async function createDiary(
+  title: string,
+  date: string,
+  content: string,
+  location?: Location
+): Promise<Diary> {
   const database = await getDatabase();
   const id = Crypto.randomUUID();
   const now = new Date().toISOString();
   await database.runAsync(
-    'INSERT INTO diaries (id, title, date, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-    [id, title, date, content, now, now]
+    'INSERT INTO diaries (id, title, date, content, latitude, longitude, location_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, title, date, content, location?.latitude ?? null, location?.longitude ?? null, location?.name ?? null, now, now]
   );
   return {
     id,
     title,
     date,
     content,
+    latitude: location?.latitude ?? null,
+    longitude: location?.longitude ?? null,
+    location_name: location?.name ?? null,
     created_at: now,
     updated_at: now,
   };
@@ -49,13 +66,14 @@ export async function updateDiary(
   id: string,
   title: string,
   date: string,
-  content: string
+  content: string,
+  location?: Location | null
 ): Promise<boolean> {
   const database = await getDatabase();
   const now = new Date().toISOString();
   const result = await database.runAsync(
-    'UPDATE diaries SET title = ?, date = ?, content = ?, updated_at = ? WHERE id = ?',
-    [title, date, content, now, id]
+    'UPDATE diaries SET title = ?, date = ?, content = ?, latitude = ?, longitude = ?, location_name = ?, updated_at = ? WHERE id = ?',
+    [title, date, content, location?.latitude ?? null, location?.longitude ?? null, location?.name ?? null, now, id]
   );
   return result.changes > 0;
 }

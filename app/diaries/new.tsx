@@ -9,7 +9,9 @@ import {
 } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { createDiary } from "../../lib/diary";
+import { createDiary, Location } from "../../lib/diary";
+import { getCurrentLocation } from "../../lib/location";
+import LocationPickerModal from "../../components/LocationPickerModal";
 
 const formatDate = (d: Date): string => {
   const year = d.getFullYear();
@@ -24,10 +26,18 @@ export default function NewDiary() {
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(new Date());
   const [content, setContent] = useState("");
+  const [location, setLocation] = useState<Location | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const contentRef = useRef({ title, date, content });
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const contentRef = useRef({ title, date, content, location });
 
-  contentRef.current = { title, date, content };
+  contentRef.current = { title, date, content, location };
+
+  useEffect(() => {
+    getCurrentLocation().then((loc) => {
+      setLocation(loc);
+    });
+  }, []);
 
   useEffect(() => {
     const showSub = Keyboard.addListener("keyboardWillShow", (e) => {
@@ -43,8 +53,8 @@ export default function NewDiary() {
   }, []);
 
   const handleSave = async () => {
-    const { title: currentTitle, date: currentDate, content: currentContent } = contentRef.current;
-    await createDiary(currentTitle.trim(), formatDate(currentDate), currentContent.trim());
+    const { title: currentTitle, date: currentDate, content: currentContent, location: currentLocation } = contentRef.current;
+    await createDiary(currentTitle.trim(), formatDate(currentDate), currentContent.trim(), currentLocation ?? undefined);
     router.back();
   };
 
@@ -77,6 +87,28 @@ export default function NewDiary() {
           if (selectedDate) setDate(selectedDate);
         }}
         style={styles.datePicker}
+      />
+
+      <Text style={styles.label}>場所</Text>
+      <TouchableOpacity
+        style={styles.locationContainer}
+        onPress={() => setShowLocationPicker(true)}
+      >
+        {location ? (
+          <Text style={styles.locationText}>
+            {location.name || `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`}
+          </Text>
+        ) : (
+          <Text style={styles.locationTextMuted}>タップして場所を選択</Text>
+        )}
+        <Text style={styles.locationChevron}>›</Text>
+      </TouchableOpacity>
+
+      <LocationPickerModal
+        visible={showLocationPicker}
+        initialLocation={location}
+        onClose={() => setShowLocationPicker(false)}
+        onSelect={setLocation}
       />
 
       <Text style={styles.label}>内容</Text>
@@ -131,5 +163,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
+  },
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+  },
+  locationText: {
+    fontSize: 16,
+    color: "#333",
+    flex: 1,
+  },
+  locationTextMuted: {
+    fontSize: 16,
+    color: "#999",
+    flex: 1,
+  },
+  locationChevron: {
+    fontSize: 20,
+    color: "#999",
+    marginLeft: 8,
   },
 });

@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { useRouter, useNavigation, useLocalSearchParams } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { Diary, getDiary, updateDiary, deleteDiary } from "../../lib/diary";
+import { Diary, Location, getDiary, updateDiary, deleteDiary } from "../../lib/diary";
+import LocationPickerModal from "../../components/LocationPickerModal";
 
 const formatDate = (d: Date): string => {
   const year = d.getFullYear();
@@ -37,9 +38,11 @@ export default function DiaryDetail() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const stateRef = useRef({ title, date, content, diary, isEditing });
+  const [location, setLocation] = useState<Location | null>(null);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const stateRef = useRef({ title, date, content, diary, isEditing, location });
 
-  stateRef.current = { title, date, content, diary, isEditing };
+  stateRef.current = { title, date, content, diary, isEditing, location };
 
   useEffect(() => {
     const showSub = Keyboard.addListener("keyboardWillShow", (e) => {
@@ -62,6 +65,13 @@ export default function DiaryDetail() {
           setTitle(d.title);
           setDate(parseDate(d.date));
           setContent(d.content);
+          if (d.latitude && d.longitude) {
+            setLocation({
+              latitude: d.latitude,
+              longitude: d.longitude,
+              name: d.location_name ?? undefined,
+            });
+          }
         }
         setLoading(false);
       });
@@ -69,12 +79,20 @@ export default function DiaryDetail() {
   }, [diaryId]);
 
   const handleSave = async () => {
-    const { title: currentTitle, date: currentDate, content: currentContent } = stateRef.current;
+    const { title: currentTitle, date: currentDate, content: currentContent, location: currentLocation } = stateRef.current;
     const dateStr = formatDate(currentDate);
-    await updateDiary(diaryId!, currentTitle.trim(), dateStr, currentContent.trim());
+    await updateDiary(diaryId!, currentTitle.trim(), dateStr, currentContent.trim(), currentLocation);
     setIsEditing(false);
     setDiary((prev) =>
-      prev ? { ...prev, title: currentTitle.trim(), date: dateStr, content: currentContent.trim() } : null
+      prev ? {
+        ...prev,
+        title: currentTitle.trim(),
+        date: dateStr,
+        content: currentContent.trim(),
+        latitude: currentLocation?.latitude ?? null,
+        longitude: currentLocation?.longitude ?? null,
+        location_name: currentLocation?.name ?? null,
+      } : null
     );
   };
 
@@ -84,6 +102,15 @@ export default function DiaryDetail() {
       setTitle(currentDiary.title);
       setDate(parseDate(currentDiary.date));
       setContent(currentDiary.content);
+      if (currentDiary.latitude && currentDiary.longitude) {
+        setLocation({
+          latitude: currentDiary.latitude,
+          longitude: currentDiary.longitude,
+          name: currentDiary.location_name ?? undefined,
+        });
+      } else {
+        setLocation(null);
+      }
     }
     setIsEditing(false);
   };
@@ -153,6 +180,11 @@ export default function DiaryDetail() {
     );
   }
 
+  const locationDisplay = diary.location_name ||
+    (diary.latitude && diary.longitude
+      ? `${diary.latitude.toFixed(4)}, ${diary.longitude.toFixed(4)}`
+      : null);
+
   if (isEditing) {
     return (
       <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
@@ -175,6 +207,28 @@ export default function DiaryDetail() {
           style={styles.datePicker}
         />
 
+        <Text style={styles.label}>場所</Text>
+        <TouchableOpacity
+          style={styles.locationContainer}
+          onPress={() => setShowLocationPicker(true)}
+        >
+          {location ? (
+            <Text style={styles.locationTextEdit}>
+              {location.name || `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`}
+            </Text>
+          ) : (
+            <Text style={styles.locationTextMuted}>タップして場所を選択</Text>
+          )}
+          <Text style={styles.locationChevron}>›</Text>
+        </TouchableOpacity>
+
+        <LocationPickerModal
+          visible={showLocationPicker}
+          initialLocation={location}
+          onClose={() => setShowLocationPicker(false)}
+          onSelect={setLocation}
+        />
+
         <Text style={styles.label}>内容</Text>
         <TextInput
           style={styles.contentInput}
@@ -190,6 +244,9 @@ export default function DiaryDetail() {
   return (
     <View style={styles.container}>
       {diary.title ? <Text style={styles.title}>{diary.title}</Text> : null}
+      {locationDisplay ? (
+        <Text style={styles.locationText}>{locationDisplay}</Text>
+      ) : null}
       <ScrollView style={styles.contentScroll}>
         <Text style={styles.content}>{diary.content}</Text>
       </ScrollView>
@@ -273,5 +330,35 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: "#FF3B30",
     fontSize: 17,
+  },
+  locationText: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 12,
+  },
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+  },
+  locationTextEdit: {
+    fontSize: 16,
+    color: "#333",
+    flex: 1,
+  },
+  locationTextMuted: {
+    fontSize: 16,
+    color: "#999",
+    flex: 1,
+  },
+  locationChevron: {
+    fontSize: 20,
+    color: "#999",
+    marginLeft: 8,
   },
 });
