@@ -11,6 +11,7 @@ import { useRouter, useNavigation } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { createDiary, Location } from "../../lib/diary";
 import { getCurrentLocation } from "../../lib/location";
+import { getWeather } from "../../lib/weather";
 import LocationPickerModal from "../../components/LocationPickerModal";
 
 const formatDate = (d: Date): string => {
@@ -54,7 +55,20 @@ export default function NewDiary() {
 
   const handleSave = async () => {
     const { title: currentTitle, date: currentDate, content: currentContent, location: currentLocation } = contentRef.current;
-    await createDiary(currentTitle.trim(), formatDate(currentDate), currentContent.trim(), currentLocation ?? undefined);
+    const dateStr = formatDate(currentDate);
+
+    // Fetch weather if location is available
+    let weather: string | undefined;
+    if (currentLocation) {
+      const fetchedWeather = await getWeather(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        dateStr
+      );
+      weather = fetchedWeather ?? undefined;
+    }
+
+    await createDiary(currentTitle.trim(), dateStr, currentContent.trim(), currentLocation ?? undefined, weather);
     router.back();
   };
 

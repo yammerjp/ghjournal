@@ -13,6 +13,7 @@ import {
 import { useRouter, useNavigation, useLocalSearchParams } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Diary, Location, getDiary, updateDiary, deleteDiary } from "../../lib/diary";
+import { getWeather } from "../../lib/weather";
 import LocationPickerModal from "../../components/LocationPickerModal";
 
 const formatDate = (d: Date): string => {
@@ -79,9 +80,29 @@ export default function DiaryDetail() {
   }, [diaryId]);
 
   const handleSave = async () => {
-    const { title: currentTitle, date: currentDate, content: currentContent, location: currentLocation } = stateRef.current;
+    const { title: currentTitle, date: currentDate, content: currentContent, location: currentLocation, diary: currentDiary } = stateRef.current;
     const dateStr = formatDate(currentDate);
-    await updateDiary(diaryId!, currentTitle.trim(), dateStr, currentContent.trim(), currentLocation);
+
+    // Check if date or location changed
+    const dateChanged = currentDiary?.date !== dateStr;
+    const locationChanged =
+      currentDiary?.latitude !== currentLocation?.latitude ||
+      currentDiary?.longitude !== currentLocation?.longitude;
+
+    // Fetch weather if date or location changed and location is available
+    let weather: string | null = currentDiary?.weather ?? null;
+    if ((dateChanged || locationChanged) && currentLocation) {
+      const fetchedWeather = await getWeather(
+        currentLocation.latitude,
+        currentLocation.longitude,
+        dateStr
+      );
+      weather = fetchedWeather;
+    } else if (!currentLocation) {
+      weather = null;
+    }
+
+    await updateDiary(diaryId!, currentTitle.trim(), dateStr, currentContent.trim(), currentLocation, weather);
     setIsEditing(false);
     setDiary((prev) =>
       prev ? {
@@ -92,6 +113,7 @@ export default function DiaryDetail() {
         latitude: currentLocation?.latitude ?? null,
         longitude: currentLocation?.longitude ?? null,
         location_name: currentLocation?.name ?? null,
+        weather,
       } : null
     );
   };
@@ -244,8 +266,10 @@ export default function DiaryDetail() {
   return (
     <View style={styles.container}>
       {diary.title ? <Text style={styles.title}>{diary.title}</Text> : null}
-      {locationDisplay ? (
-        <Text style={styles.locationText}>{locationDisplay}</Text>
+      {(locationDisplay || diary.weather) ? (
+        <Text style={styles.metaText}>
+          {[locationDisplay, diary.weather].filter(Boolean).join(' / ')}
+        </Text>
       ) : null}
       <ScrollView style={styles.contentScroll}>
         <Text style={styles.content}>{diary.content}</Text>
@@ -331,7 +355,7 @@ const styles = StyleSheet.create({
     color: "#FF3B30",
     fontSize: 17,
   },
-  locationText: {
+  metaText: {
     fontSize: 14,
     color: "#666",
     marginBottom: 12,

@@ -16,6 +16,7 @@ export interface Diary {
   latitude: number | null;
   longitude: number | null;
   location_name: string | null;
+  weather: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -24,14 +25,15 @@ export async function createDiary(
   title: string,
   date: string,
   content: string,
-  location?: Location
+  location?: Location,
+  weather?: string
 ): Promise<Diary> {
   const database = await getDatabase();
   const id = Crypto.randomUUID();
   const now = new Date().toISOString();
   await database.runAsync(
-    'INSERT INTO diaries (id, title, date, content, latitude, longitude, location_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, title, date, content, location?.latitude ?? null, location?.longitude ?? null, location?.name ?? null, now, now]
+    'INSERT INTO diaries (id, title, date, content, latitude, longitude, location_name, weather, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, title, date, content, location?.latitude ?? null, location?.longitude ?? null, location?.name ?? null, weather ?? null, now, now]
   );
   return {
     id,
@@ -41,6 +43,7 @@ export async function createDiary(
     latitude: location?.latitude ?? null,
     longitude: location?.longitude ?? null,
     location_name: location?.name ?? null,
+    weather: weather ?? null,
     created_at: now,
     updated_at: now,
   };
@@ -68,13 +71,14 @@ export async function updateDiary(
   title: string,
   date: string,
   content: string,
-  location?: Location | null
+  location?: Location | null,
+  weather?: string | null
 ): Promise<boolean> {
   const database = await getDatabase();
   const now = new Date().toISOString();
   const result = await database.runAsync(
-    'UPDATE diaries SET title = ?, date = ?, content = ?, latitude = ?, longitude = ?, location_name = ?, updated_at = ? WHERE id = ?',
-    [title, date, content, location?.latitude ?? null, location?.longitude ?? null, location?.name ?? null, now, id]
+    'UPDATE diaries SET title = ?, date = ?, content = ?, latitude = ?, longitude = ?, location_name = ?, weather = ?, updated_at = ? WHERE id = ?',
+    [title, date, content, location?.latitude ?? null, location?.longitude ?? null, location?.name ?? null, weather ?? null, now, id]
   );
   return result.changes > 0;
 }
