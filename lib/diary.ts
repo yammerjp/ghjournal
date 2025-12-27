@@ -423,3 +423,82 @@ export async function deleteDiary(diaryId: string): Promise<boolean> {
 
   return true;
 }
+
+export interface DiaryVersion {
+  id: string;
+  diary_id: string;
+  title: string;
+  date: string;
+  content: string;
+  location_latitude: number | null;
+  location_longitude: number | null;
+  location_description: string | null;
+  location_city: string | null;
+  weather_wmo_code: number | null;
+  weather_description: string | null;
+  weather_temperature_min: number | null;
+  weather_temperature_max: number | null;
+  archived_at: string | null;
+  created_at: string;
+}
+
+export async function getDiaryVersions(diaryId: string): Promise<DiaryVersion[]> {
+  const database = await getLocalDatabase();
+  const versions = await database.getAllAsync<DiaryVersion>(
+    'SELECT * FROM diary_versions WHERE diary_id = ? AND archived_at IS NULL ORDER BY created_at DESC',
+    [diaryId]
+  );
+  return versions;
+}
+
+export async function restoreVersion(diaryId: string, versionId: string): Promise<boolean> {
+  const database = await getLocalDatabase();
+
+  // Get the version to restore
+  const version = await database.getFirstAsync<DiaryVersion>(
+    'SELECT * FROM diary_versions WHERE id = ? AND diary_id = ?',
+    [versionId, diaryId]
+  );
+
+  if (!version) {
+    return false;
+  }
+
+  // Delete any existing draft
+  await database.runAsync('DELETE FROM diary_drafts WHERE diary_id = ?', [diaryId]);
+  draftCreatedAtCache.delete(diaryId);
+
+  // Create a sealed draft with the version content
+  const now = new Date().toISOString();
+  const pendingVersionId = Crypto.randomUUID();
+
+  await database.runAsync(
+    `INSERT INTO diary_drafts
+     (diary_id, title, date, content, location_latitude, location_longitude,
+      location_description, location_city, weather_wmo_code, weather_description,
+      weather_temperature_min, weather_temperature_max, created_at, updated_at,
+      sealed_at, pending_version_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      diaryId,
+      version.title,
+      version.date,
+      version.content,
+      version.location_latitude,
+      version.location_longitude,
+      version.location_description,
+      version.location_city,
+      version.weather_wmo_code,
+      version.weather_description,
+      version.weather_temperature_min,
+      version.weather_temperature_max,
+      now,
+      now,
+      now, // sealed_at - immediately sealed
+      pendingVersionId,
+    ]
+  );
+
+  // Commit the sealed draft
+  return commitSealedDraft(diaryId);
+}

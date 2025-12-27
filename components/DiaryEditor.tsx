@@ -28,6 +28,7 @@ import {
 } from "../lib/format";
 import LocationPickerModal from "./LocationPickerModal";
 import DatePickerModal from "./DatePickerModal";
+import VersionHistoryModal from "./VersionHistoryModal";
 import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { useWeatherFetch } from "../hooks/useWeatherFetch";
 import { useDiaryAutoSave } from "../hooks/useDiaryAutoSave";
@@ -52,6 +53,7 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   // UI states
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [isMetaExpanded, setIsMetaExpanded] = useState(false);
 
   // Other states
@@ -219,16 +221,60 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
     ]);
   };
 
+  const handleShowHistory = () => {
+    dismissKeyboard();
+    setShowVersionHistory(true);
+  };
+
+  const handleHistoryRestore = useCallback(() => {
+    // Reload the diary data after restore
+    if (diaryId) {
+      getDiaryForEdit(diaryId).then((d) => {
+        if (d) {
+          setTitle(d.title);
+          setDate(parseDate(d.date));
+          setContent(d.content);
+          setLocation(
+            d.location_latitude && d.location_longitude
+              ? {
+                  latitude: d.location_latitude,
+                  longitude: d.location_longitude,
+                  name: d.location_description ?? undefined,
+                  shortName: d.location_city ?? undefined,
+                }
+              : null
+          );
+          setWeather(
+            d.weather_wmo_code !== null &&
+            d.weather_description !== null &&
+            d.weather_temperature_min !== null &&
+            d.weather_temperature_max !== null
+              ? {
+                  wmoCode: d.weather_wmo_code,
+                  description: d.weather_description,
+                  temperatureMin: d.weather_temperature_min,
+                  temperatureMax: d.weather_temperature_max,
+                }
+              : null
+          );
+          setUserHasEdited(false);
+        }
+      });
+    }
+  }, [diaryId, setWeather]);
+
   const showMenu = () => {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ["キャンセル", "削除"],
-          destructiveButtonIndex: 1,
+          options: ["キャンセル", "編集履歴", "削除"],
+          destructiveButtonIndex: 2,
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
           if (buttonIndex === 1) {
+            handleShowHistory();
+          } else if (buttonIndex === 2) {
             handleDelete();
           }
         }
@@ -237,6 +283,7 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
       // Android: use Alert as a simple menu
       Alert.alert("メニュー", undefined, [
         { text: "キャンセル", style: "cancel" },
+        { text: "編集履歴", onPress: handleShowHistory },
         { text: "削除", style: "destructive", onPress: handleDelete },
       ]);
     }
@@ -409,6 +456,13 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
         initialDate={date}
         onClose={() => setShowDatePicker(false)}
         onSelect={handleDateChange}
+      />
+
+      <VersionHistoryModal
+        visible={showVersionHistory}
+        diaryId={diaryDbId}
+        onClose={() => setShowVersionHistory(false)}
+        onRestore={handleHistoryRestore}
       />
 
       {/* Content */}
