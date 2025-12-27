@@ -1,78 +1,41 @@
-import { useEffect, useLayoutEffect, useState, useMemo } from "react";
+import { useEffect, useLayoutEffect, useState, useMemo, useCallback } from "react";
 import {
   Text,
   View,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   StyleSheet,
   ActivityIndicator,
   Alert,
   ActionSheetIOS,
   Platform,
+  Keyboard,
+  GestureResponderEvent,
 } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Location, Weather, getDiary, deleteDiary } from "../lib/diary";
+import { Location, getDiary, deleteDiary } from "../lib/diary";
 import { getCurrentLocation } from "../lib/location";
+import {
+  formatDate,
+  parseDate,
+  formatDateShort,
+  formatDateTime,
+  generateTitle,
+  getWeatherIcon,
+  formatTemperature,
+} from "../lib/format";
 import LocationPickerModal from "./LocationPickerModal";
 import DatePickerModal from "./DatePickerModal";
 import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { useWeatherFetch } from "../hooks/useWeatherFetch";
 import { useDiaryAutoSave } from "../hooks/useDiaryAutoSave";
+import { useContentEditor } from "../hooks/useContentEditor";
 
 interface DiaryEditorProps {
   diaryId: string | null;
 }
-
-const formatDate = (d: Date): string => {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const parseDate = (dateStr: string): Date => {
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year, month - 1, day);
-};
-
-const formatDateShort = (d: Date): string => {
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-};
-
-const formatDateTime = (isoStr: string): string => {
-  const d = new Date(isoStr);
-  const year = d.getFullYear();
-  const month = d.getMonth() + 1;
-  const day = d.getDate();
-  const hour = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${year}/${month}/${day} ${hour}:${min}`;
-};
-
-const generateTitle = (content: string): string => {
-  if (!content.trim()) return "";
-  const firstLine = content.split("\n")[0].trim();
-  return firstLine.slice(0, 20) + (firstLine.length > 20 ? "..." : "");
-};
-
-// Weather icon based on WMO code
-const getWeatherIcon = (wmoCode: number | null): { name: keyof typeof Ionicons.glyphMap; color: string } => {
-  if (wmoCode === null) return { name: "help-outline", color: "#999" };
-  if (wmoCode <= 1) return { name: "sunny", color: "#f97316" };
-  if (wmoCode <= 3) return { name: "cloudy", color: "#6b7280" };
-  if (wmoCode <= 48) return { name: "cloudy", color: "#6b7280" };
-  if (wmoCode <= 67) return { name: "rainy", color: "#3b82f6" };
-  if (wmoCode <= 77) return { name: "snow", color: "#22d3ee" };
-  if (wmoCode <= 82) return { name: "rainy", color: "#3b82f6" };
-  if (wmoCode <= 86) return { name: "snow", color: "#22d3ee" };
-  return { name: "thunderstorm", color: "#8b5cf6" };
-};
-
-const formatTemperature = (weather: Weather | null): string | null => {
-  if (!weather) return null;
-  return `${weather.temperatureMin}℃〜${weather.temperatureMax}℃`;
-};
 
 export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   const router = useRouter();
@@ -120,6 +83,20 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
     location,
     weather,
     enabled: initialLoadComplete && (!isNew || userHasEdited),
+  });
+
+  const {
+    isEditing,
+    selection,
+    showTextInput,
+    contentInputRef,
+    handleTap,
+    exitEditMode,
+    onSelectionApplied,
+    focusInput,
+  } = useContentEditor({
+    content,
+    isNewAndEmpty: isNew && !content,
   });
 
   const autoTitle = useMemo(() => generateTitle(content), [content]);
@@ -197,6 +174,32 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
     setUserHasEdited(true);
   };
 
+  // Dismiss keyboard and exit editing mode
+  const dismissKeyboard = useCallback(() => {
+    Keyboard.dismiss();
+    contentInputRef.current?.blur();
+    exitEditMode();
+  }, [exitEditMode, contentInputRef]);
+
+  // Handle double tap to enter editing mode
+  const handleContentAreaPress = useCallback((event: GestureResponderEvent) => {
+    const { locationX, locationY } = event.nativeEvent;
+    handleTap(locationX, locationY);
+    focusInput();
+  }, [handleTap, focusInput]);
+
+  // Open date picker with keyboard dismiss
+  const openDatePicker = useCallback(() => {
+    dismissKeyboard();
+    setShowDatePicker(true);
+  }, [dismissKeyboard]);
+
+  // Open location picker with keyboard dismiss
+  const openLocationPicker = useCallback(() => {
+    dismissKeyboard();
+    setShowLocationPicker(true);
+  }, [dismissKeyboard]);
+
   const handleDelete = () => {
     if (!diaryDbId) {
       router.back();
@@ -267,12 +270,16 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
-      {/* Meta Row - Collapsed */}
-      <TouchableOpacity
-        style={styles.metaRow}
-        onPress={() => setIsMetaExpanded(!isMetaExpanded)}
-      >
+    <TouchableWithoutFeedback onPress={dismissKeyboard}>
+      <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
+        {/* Meta Row - Collapsed */}
+        <TouchableOpacity
+          style={styles.metaRow}
+          onPress={() => {
+            dismissKeyboard();
+            setIsMetaExpanded(!isMetaExpanded);
+          }}
+        >
         <View style={styles.metaRowLeft}>
           <Text style={styles.metaDate}>{formatDateShort(date)}</Text>
           {location?.shortName && (
@@ -303,7 +310,7 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
             <Text style={styles.metaLabel}>日付</Text>
             <TouchableOpacity
               style={styles.metaInput}
-              onPress={() => setShowDatePicker(true)}
+              onPress={openDatePicker}
             >
               <Text style={styles.metaInputText}>{formatDate(date)}</Text>
             </TouchableOpacity>
@@ -314,7 +321,7 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
             <Text style={styles.metaLabel}>場所</Text>
             <TouchableOpacity
               style={styles.metaInput}
-              onPress={() => setShowLocationPicker(true)}
+              onPress={openLocationPicker}
             >
               <Text style={location ? styles.metaInputText : styles.metaInputTextMuted}>
                 {location?.name || location?.shortName || "タップして選択"}
@@ -397,17 +404,32 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
       />
 
       {/* Content */}
-      <TextInput
-        style={styles.contentInput}
-        value={content}
-        onChangeText={handleContentChange}
-        multiline
-        placeholder="今日あったことを書いてみましょう..."
-        placeholderTextColor="#ccc"
-        textAlignVertical="top"
-        autoFocus={isNew}
-      />
-    </View>
+      {showTextInput ? (
+        <TextInput
+          ref={contentInputRef}
+          style={styles.contentInput}
+          value={content}
+          onChangeText={handleContentChange}
+          onBlur={exitEditMode}
+          onSelectionChange={onSelectionApplied}
+          selection={selection}
+          multiline
+          placeholder="今日あったことを書いてみましょう..."
+          placeholderTextColor="#ccc"
+          textAlignVertical="top"
+          autoFocus={isNew && !content}
+        />
+      ) : (
+        <TouchableWithoutFeedback onPress={handleContentAreaPress}>
+          <View style={styles.contentArea}>
+            <Text style={content ? styles.contentText : styles.contentPlaceholder}>
+              {content || "ダブルタップで編集..."}
+            </Text>
+          </View>
+        </TouchableWithoutFeedback>
+      )}
+      </View>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -543,5 +565,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: "#333",
+  },
+  contentArea: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  contentText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#333",
+  },
+  contentPlaceholder: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#ccc",
   },
 });
