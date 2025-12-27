@@ -9,6 +9,7 @@ import {
   Alert,
 } from "react-native";
 import Slider from "@react-native-community/slider";
+import * as Clipboard from "expo-clipboard";
 import { DiaryVersion, getDiaryVersions, restoreVersion } from "../lib/diary";
 import { formatDateTime } from "../lib/format";
 
@@ -73,6 +74,12 @@ export default function VersionHistoryModal({
       ]
     );
   }, [diaryId, selectedVersion, isLatest, onRestore, onClose]);
+
+  const handleCopyContent = useCallback(async () => {
+    if (!selectedVersion) return;
+    await Clipboard.setStringAsync(selectedVersion.content);
+    Alert.alert("コピーしました", "本文をクリップボードにコピーしました");
+  }, [selectedVersion]);
 
   const handleSliderChange = (value: number) => {
     setSelectedIndex(Math.round(value));
@@ -140,19 +147,23 @@ export default function VersionHistoryModal({
               )}
             </ScrollView>
 
-            {!isLatest && (
-              <View style={styles.footer}>
-                <TouchableOpacity
-                  style={[styles.restoreButton, isRestoring && styles.restoreButtonDisabled]}
-                  onPress={handleRestore}
-                  disabled={isRestoring}
-                >
-                  <Text style={styles.restoreButtonText}>
-                    {isRestoring ? "復元中..." : "この状態に復元"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            <View style={styles.footer}>
+              <TouchableOpacity
+                style={styles.copyButton}
+                onPress={handleCopyContent}
+              >
+                <Text style={styles.copyButtonText}>本文をコピー</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.restoreButton, (isLatest || isRestoring) && styles.restoreButtonDisabled]}
+                onPress={handleRestore}
+                disabled={isLatest || isRestoring}
+              >
+                <Text style={styles.restoreButtonText}>
+                  {isRestoring ? "復元中..." : "この状態に復元"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
       </View>
@@ -234,6 +245,18 @@ const styles = StyleSheet.create({
     padding: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#e0e0e0",
+    gap: 10,
+  },
+  copyButton: {
+    backgroundColor: "#f0f0f0",
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  copyButtonText: {
+    color: "#007AFF",
+    fontSize: 17,
+    fontWeight: "600",
   },
   restoreButton: {
     backgroundColor: "#007AFF",
