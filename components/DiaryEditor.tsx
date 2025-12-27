@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from "react";
+import { useEffect, useLayoutEffect, useState, useMemo } from "react";
 import {
   Text,
   View,
@@ -12,12 +12,13 @@ import {
 } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Location, Weather, getDiary, updateDiary, deleteDiary, createDiary } from "../lib/diary";
+import { Location, Weather, getDiary, deleteDiary } from "../lib/diary";
 import { getCurrentLocation } from "../lib/location";
 import LocationPickerModal from "./LocationPickerModal";
 import DatePickerModal from "./DatePickerModal";
 import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { useWeatherFetch } from "../hooks/useWeatherFetch";
+import { useDiaryAutoSave } from "../hooks/useDiaryAutoSave";
 
 interface DiaryEditorProps {
   diaryId: string | null;
@@ -80,13 +81,10 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   const isNew = diaryId === null;
 
   // Diary data states
-  const [diaryDbId, setDiaryDbId] = useState<string | null>(diaryId);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<Date>(new Date());
   const [content, setContent] = useState("");
   const [location, setLocation] = useState<Location | null>(null);
-  const [createdAt, setCreatedAt] = useState<string | null>(null);
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   // UI states
   const [showLocationPicker, setShowLocationPicker] = useState(false);
@@ -108,15 +106,21 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
     setWeather,
   } = useWeatherFetch(location, date);
 
-  // Ref for debounced save
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastSavedRef = useRef<{
-    title: string;
-    date: string;
-    content: string;
-    location: Location | null;
-    weather: Weather | null;
-  } | null>(null);
+  const {
+    diaryId: diaryDbId,
+    createdAt,
+    updatedAt,
+    setCreatedAt,
+    setUpdatedAt,
+  } = useDiaryAutoSave({
+    initialId: diaryId,
+    title,
+    date,
+    content,
+    location,
+    weather,
+    enabled: initialLoadComplete && (!isNew || userHasEdited),
+  });
 
   const autoTitle = useMemo(() => generateTitle(content), [content]);
   const isAutoTitle = !title.trim();
@@ -165,90 +169,12 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
           setWeather(loadedWeather);
           setCreatedAt(d.created_at);
           setUpdatedAt(d.updated_at);
-
-          // Set initial saved state
-          lastSavedRef.current = {
-            title: d.title,
-            date: d.date,
-            content: d.content,
-            location: loadedLocation,
-            weather: loadedWeather,
-          };
         }
         setLoading(false);
         setInitialLoadComplete(true);
       });
     }
-  }, [diaryId, isNew, setWeather]);
-
-  // Auto-save function
-  const performSave = useCallback(async () => {
-    const currentTitle = title.trim() || generateTitle(content);
-    const currentDate = formatDate(date);
-    const currentContent = content.trim();
-
-    // Check if anything changed from last save
-    const lastSaved = lastSavedRef.current;
-    if (lastSaved) {
-      const hasChanges =
-        lastSaved.title !== currentTitle ||
-        lastSaved.date !== currentDate ||
-        lastSaved.content !== currentContent ||
-        lastSaved.location?.latitude !== location?.latitude ||
-        lastSaved.location?.longitude !== location?.longitude ||
-        lastSaved.weather?.wmoCode !== weather?.wmoCode ||
-        lastSaved.weather?.temperatureMin !== weather?.temperatureMin ||
-        lastSaved.weather?.temperatureMax !== weather?.temperatureMax;
-
-      if (!hasChanges) return;
-    }
-
-    const now = new Date().toISOString();
-    if (diaryDbId) {
-      // Update existing
-      await updateDiary(diaryDbId, currentTitle, currentDate, currentContent, location, weather);
-      setUpdatedAt(now);
-    } else {
-      // Create new
-      const newDiary = await createDiary(currentTitle, currentDate, currentContent, location ?? undefined, weather ?? undefined);
-      setDiaryDbId(newDiary.id);
-      setCreatedAt(now);
-      setUpdatedAt(now);
-    }
-
-    // Update last saved state
-    lastSavedRef.current = {
-      title: currentTitle,
-      date: currentDate,
-      content: currentContent,
-      location,
-      weather,
-    };
-  }, [title, date, content, location, weather, diaryDbId]);
-
-  // Debounced auto-save effect
-  useEffect(() => {
-    if (!initialLoadComplete) return;
-
-    // For new diary: only save after user has made edits
-    if (isNew && !userHasEdited) return;
-
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    // Set new timeout for debounced save (500ms delay)
-    saveTimeoutRef.current = setTimeout(() => {
-      performSave();
-    }, 500);
-
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [title, date, content, location, weather, initialLoadComplete, isNew, userHasEdited, performSave]);
+  }, [diaryId, isNew, setWeather, setCreatedAt, setUpdatedAt]);
 
   // Wrapper functions to track user edits
   const handleTitleChange = (text: string) => {
