@@ -15,6 +15,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Diary, Location, getDiary, updateDiary, deleteDiary } from "../../lib/diary";
 import { getWeather } from "../../lib/weather";
 import LocationPickerModal from "../../components/LocationPickerModal";
+import RefreshWeatherButton from "../../components/RefreshWeatherButton";
 
 const formatDate = (d: Date): string => {
   const year = d.getFullYear();
@@ -40,10 +41,12 @@ export default function DiaryDetail() {
   const [loading, setLoading] = useState(true);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [location, setLocation] = useState<Location | null>(null);
+  const [weather, setWeather] = useState<string | null>(null);
+  const [isLoadingWeather, setIsLoadingWeather] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const stateRef = useRef({ title, date, content, diary, isEditing, location });
+  const stateRef = useRef({ title, date, content, diary, isEditing, location, weather });
 
-  stateRef.current = { title, date, content, diary, isEditing, location };
+  stateRef.current = { title, date, content, diary, isEditing, location, weather };
 
   useEffect(() => {
     const showSub = Keyboard.addListener("keyboardWillShow", (e) => {
@@ -66,6 +69,7 @@ export default function DiaryDetail() {
           setTitle(d.title);
           setDate(parseDate(d.date));
           setContent(d.content);
+          setWeather(d.weather);
           if (d.latitude && d.longitude) {
             setLocation({
               latitude: d.latitude,
@@ -79,30 +83,38 @@ export default function DiaryDetail() {
     }
   }, [diaryId]);
 
+  // Fetch weather when date or location changes during editing
+  useEffect(() => {
+    if (!isEditing || !diary) return;
+
+    const dateStr = formatDate(date);
+    const dateChanged = diary.date !== dateStr;
+    const locationChanged =
+      diary.latitude !== location?.latitude ||
+      diary.longitude !== location?.longitude;
+
+    // Only fetch if something changed and location is available
+    if ((dateChanged || locationChanged) && location) {
+      const fetchWeather = async () => {
+        setIsLoadingWeather(true);
+        try {
+          const result = await getWeather(location.latitude, location.longitude, dateStr);
+          setWeather(result);
+        } finally {
+          setIsLoadingWeather(false);
+        }
+      };
+      fetchWeather();
+    } else if (!location) {
+      setWeather(null);
+    }
+  }, [date, location, isEditing, diary]);
+
   const handleSave = async () => {
-    const { title: currentTitle, date: currentDate, content: currentContent, location: currentLocation, diary: currentDiary } = stateRef.current;
+    const { title: currentTitle, date: currentDate, content: currentContent, location: currentLocation, weather: currentWeather } = stateRef.current;
     const dateStr = formatDate(currentDate);
 
-    // Check if date or location changed
-    const dateChanged = currentDiary?.date !== dateStr;
-    const locationChanged =
-      currentDiary?.latitude !== currentLocation?.latitude ||
-      currentDiary?.longitude !== currentLocation?.longitude;
-
-    // Fetch weather if date or location changed and location is available
-    let weather: string | null = currentDiary?.weather ?? null;
-    if ((dateChanged || locationChanged) && currentLocation) {
-      const fetchedWeather = await getWeather(
-        currentLocation.latitude,
-        currentLocation.longitude,
-        dateStr
-      );
-      weather = fetchedWeather;
-    } else if (!currentLocation) {
-      weather = null;
-    }
-
-    await updateDiary(diaryId!, currentTitle.trim(), dateStr, currentContent.trim(), currentLocation, weather);
+    await updateDiary(diaryId!, currentTitle.trim(), dateStr, currentContent.trim(), currentLocation, currentWeather);
     setIsEditing(false);
     setDiary((prev) =>
       prev ? {
@@ -113,7 +125,7 @@ export default function DiaryDetail() {
         latitude: currentLocation?.latitude ?? null,
         longitude: currentLocation?.longitude ?? null,
         location_name: currentLocation?.name ?? null,
-        weather,
+        weather: currentWeather,
       } : null
     );
   };
@@ -124,6 +136,7 @@ export default function DiaryDetail() {
       setTitle(currentDiary.title);
       setDate(parseDate(currentDiary.date));
       setContent(currentDiary.content);
+      setWeather(currentDiary.weather);
       if (currentDiary.latitude && currentDiary.longitude) {
         setLocation({
           latitude: currentDiary.latitude,
@@ -250,6 +263,35 @@ export default function DiaryDetail() {
           onClose={() => setShowLocationPicker(false)}
           onSelect={setLocation}
         />
+
+        <Text style={styles.label}>天気</Text>
+        <View style={styles.weatherRow}>
+          <View style={styles.weatherContainer}>
+            {isLoadingWeather ? (
+              <Text style={styles.weatherTextMuted}>取得中...</Text>
+            ) : weather ? (
+              <Text style={styles.weatherText}>{weather}</Text>
+            ) : (
+              <Text style={styles.weatherTextMuted}>
+                {location ? "天気データなし" : "場所を設定すると天気を取得します"}
+              </Text>
+            )}
+          </View>
+          <RefreshWeatherButton
+            onRefresh={async () => {
+              if (!location) return;
+              setIsLoadingWeather(true);
+              try {
+                const dateStr = formatDate(date);
+                const result = await getWeather(location.latitude, location.longitude, dateStr);
+                setWeather(result);
+              } finally {
+                setIsLoadingWeather(false);
+              }
+            }}
+            disabled={!location || isLoadingWeather}
+          />
+        </View>
 
         <Text style={styles.label}>内容</Text>
         <TextInput
@@ -384,5 +426,27 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: "#999",
     marginLeft: 8,
+  },
+  weatherRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  weatherContainer: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    backgroundColor: "#f9f9f9",
+  },
+  weatherText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  weatherTextMuted: {
+    fontSize: 16,
+    color: "#999",
   },
 });

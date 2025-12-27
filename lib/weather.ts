@@ -1,21 +1,47 @@
-import { getOpenWeatherApiKey, isWeatherEnabled } from './secrets';
+import { isWeatherEnabled } from './secrets';
 import { debugLog } from './debug-log';
 
-interface WeatherData {
-  weather: {
-    main: string;
-    description: string;
-  }[];
-  temp: number;
+// Open-Meteo API response
+interface OpenMeteoResponse {
+  daily: {
+    time: string[];
+    weather_code: number[];
+    temperature_2m_max: number[];
+    temperature_2m_min: number[];
+  };
 }
 
-interface OneCallCurrentResponse {
-  current: WeatherData;
-}
-
-interface OneCallTimeMachineResponse {
-  data: WeatherData[];
-}
+// WMO Weather interpretation codes
+const weatherCodeToDescription: Record<number, string> = {
+  0: '快晴',
+  1: '晴れ',
+  2: 'くもり時々晴れ',
+  3: 'くもり',
+  45: '霧',
+  48: '霧氷',
+  51: '小雨',
+  53: '雨',
+  55: '強い雨',
+  56: '弱い着氷性の雨',
+  57: '着氷性の雨',
+  61: '小雨',
+  63: '雨',
+  65: '強い雨',
+  66: '弱い着氷性の雨',
+  67: '着氷性の雨',
+  71: '小雪',
+  73: '雪',
+  75: '大雪',
+  77: '霧雪',
+  80: '小雨',
+  81: 'にわか雨',
+  82: '強いにわか雨',
+  85: '小雪',
+  86: 'にわか雪',
+  95: '雷雨',
+  96: '雷雨(ひょう)',
+  99: '激しい雷雨(ひょう)',
+};
 
 export async function getWeather(
   latitude: number,
@@ -29,38 +55,26 @@ export async function getWeather(
     return null;
   }
 
-  const apiKey = await getOpenWeatherApiKey();
-  if (!apiKey) {
-    await debugLog.warn('Weather fetch skipped: no API key');
-    return null;
-  }
-
   try {
     await debugLog.info(`Weather fetch started`, `lat=${latitude}, lon=${longitude}, date=${date}`);
-    const targetDate = new Date(date);
-    targetDate.setHours(12, 0, 0, 0); // Use noon for the target date
-    const now = new Date();
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const targetDate = new Date(date);
+    targetDate.setHours(0, 0, 0, 0);
 
-    const targetDateStart = new Date(date);
-    targetDateStart.setHours(0, 0, 0, 0);
-
-    const diffDays = Math.floor((today.getTime() - targetDateStart.getTime()) / (1000 * 60 * 60 * 24));
+    const diffDays = Math.floor((today.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
 
     let url: string;
-    let isTimeMachine = false;
-
-    if (diffDays <= 0 && diffDays >= -4) {
-      // Today or future (up to 4 days): use current/forecast API
-      url = `https://api.openweathermap.org/data/3.0/onecall?lat=${latitude}&lon=${longitude}&appid=${apiKey}&units=metric&lang=ja&exclude=minutely,hourly,alerts`;
-    } else if (diffDays > 0) {
-      // Past date: use timemachine API
-      const timestamp = Math.floor(targetDate.getTime() / 1000);
-      url = `https://api.openweathermap.org/data/3.0/onecall/timemachine?lat=${latitude}&lon=${longitude}&dt=${timestamp}&appid=${apiKey}&units=metric&lang=ja`;
-      isTimeMachine = true;
+    if (diffDays >= 2) {
+      // 2+ days in the past: use Historical API
+      url = `https://archive-api.open-meteo.com/v1/archive?latitude=${latitude}&longitude=${longitude}&start_date=${date}&end_date=${date}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia/Tokyo`;
+    } else if (diffDays >= -16) {
+      // Today, yesterday, or up to 16 days in future: use Forecast API
+      url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&start_date=${date}&end_date=${date}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia/Tokyo`;
     } else {
       // Too far in the future
+      await debugLog.info('Weather fetch skipped: date too far in future', `diffDays=${diffDays}`);
       return null;
     }
 
@@ -71,28 +85,14 @@ export async function getWeather(
       return null;
     }
 
-    let weatherData: WeatherData | undefined;
+    const data: OpenMeteoResponse = await response.json();
 
-    if (isTimeMachine) {
-      const data: OneCallTimeMachineResponse = await response.json();
-      if (data.data && data.data.length > 0) {
-        weatherData = data.data[0];
-      }
-    } else {
-      const data: OneCallCurrentResponse = await response.json();
-      if (diffDays === 0) {
-        // Today: use current weather
-        weatherData = data.current;
-      } else {
-        // Future: would need to use daily forecast, but for simplicity use current
-        weatherData = data.current;
-      }
-    }
-
-    if (weatherData && weatherData.weather && weatherData.weather.length > 0) {
-      const weather = weatherData.weather[0];
-      const temp = Math.round(weatherData.temp);
-      const result = `${weather.description} ${temp}°C`;
+    if (data.daily && data.daily.weather_code && data.daily.weather_code.length > 0) {
+      const weatherCode = data.daily.weather_code[0];
+      const maxTemp = Math.round(data.daily.temperature_2m_max[0]);
+      const minTemp = Math.round(data.daily.temperature_2m_min[0]);
+      const description = weatherCodeToDescription[weatherCode] ?? `天気コード${weatherCode}`;
+      const result = `${description} ${maxTemp}/${minTemp}°C`;
       await debugLog.info('Weather fetch success', result);
       return result;
     }

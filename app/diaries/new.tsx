@@ -13,6 +13,7 @@ import { createDiary, Location } from "../../lib/diary";
 import { getCurrentLocation } from "../../lib/location";
 import { getWeather } from "../../lib/weather";
 import LocationPickerModal from "../../components/LocationPickerModal";
+import RefreshWeatherButton from "../../components/RefreshWeatherButton";
 
 const formatDate = (d: Date): string => {
   const year = d.getFullYear();
@@ -28,17 +29,38 @@ export default function NewDiary() {
   const [date, setDate] = useState(new Date());
   const [content, setContent] = useState("");
   const [location, setLocation] = useState<Location | null>(null);
+  const [weather, setWeather] = useState<string | null>(null);
+  const [isLoadingWeather, setIsLoadingWeather] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const contentRef = useRef({ title, date, content, location });
+  const contentRef = useRef({ title, date, content, location, weather });
 
-  contentRef.current = { title, date, content, location };
+  contentRef.current = { title, date, content, location, weather };
 
   useEffect(() => {
     getCurrentLocation().then((loc) => {
       setLocation(loc);
     });
   }, []);
+
+  // Fetch weather when date or location changes
+  useEffect(() => {
+    const fetchWeather = async () => {
+      if (!location) {
+        setWeather(null);
+        return;
+      }
+      setIsLoadingWeather(true);
+      try {
+        const dateStr = formatDate(date);
+        const result = await getWeather(location.latitude, location.longitude, dateStr);
+        setWeather(result);
+      } finally {
+        setIsLoadingWeather(false);
+      }
+    };
+    fetchWeather();
+  }, [date, location]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener("keyboardWillShow", (e) => {
@@ -54,21 +76,9 @@ export default function NewDiary() {
   }, []);
 
   const handleSave = async () => {
-    const { title: currentTitle, date: currentDate, content: currentContent, location: currentLocation } = contentRef.current;
+    const { title: currentTitle, date: currentDate, content: currentContent, location: currentLocation, weather: currentWeather } = contentRef.current;
     const dateStr = formatDate(currentDate);
-
-    // Fetch weather if location is available
-    let weather: string | undefined;
-    if (currentLocation) {
-      const fetchedWeather = await getWeather(
-        currentLocation.latitude,
-        currentLocation.longitude,
-        dateStr
-      );
-      weather = fetchedWeather ?? undefined;
-    }
-
-    await createDiary(currentTitle.trim(), dateStr, currentContent.trim(), currentLocation ?? undefined, weather);
+    await createDiary(currentTitle.trim(), dateStr, currentContent.trim(), currentLocation ?? undefined, currentWeather ?? undefined);
     router.back();
   };
 
@@ -124,6 +134,35 @@ export default function NewDiary() {
         onClose={() => setShowLocationPicker(false)}
         onSelect={setLocation}
       />
+
+      <Text style={styles.label}>天気</Text>
+      <View style={styles.weatherRow}>
+        <View style={styles.weatherContainer}>
+          {isLoadingWeather ? (
+            <Text style={styles.weatherTextMuted}>取得中...</Text>
+          ) : weather ? (
+            <Text style={styles.weatherText}>{weather}</Text>
+          ) : (
+            <Text style={styles.weatherTextMuted}>
+              {location ? "天気データなし" : "場所を設定すると天気を取得します"}
+            </Text>
+          )}
+        </View>
+        <RefreshWeatherButton
+          onRefresh={async () => {
+            if (!location) return;
+            setIsLoadingWeather(true);
+            try {
+              const dateStr = formatDate(date);
+              const result = await getWeather(location.latitude, location.longitude, dateStr);
+              setWeather(result);
+            } finally {
+              setIsLoadingWeather(false);
+            }
+          }}
+          disabled={!location || isLoadingWeather}
+        />
+      </View>
 
       <Text style={styles.label}>内容</Text>
       <TextInput
@@ -202,5 +241,27 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: "#999",
     marginLeft: 8,
+  },
+  weatherRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  weatherContainer: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    backgroundColor: "#f9f9f9",
+  },
+  weatherText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  weatherTextMuted: {
+    fontSize: 16,
+    color: "#999",
   },
 });
