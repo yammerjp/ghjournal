@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 import {
   Text,
   View,
@@ -8,19 +8,48 @@ import {
   StyleSheet,
 } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { createDiary, Location } from "../../lib/diary";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { createDiary, Location, Weather } from "../../lib/diary";
 import { getCurrentLocation } from "../../lib/location";
 import { getWeather } from "../../lib/weather";
 import { isWeatherEnabled } from "../../lib/secrets";
 import LocationPickerModal from "../../components/LocationPickerModal";
-import RefreshWeatherButton from "../../components/RefreshWeatherButton";
+import DatePickerModal from "../../components/DatePickerModal";
 
 const formatDate = (d: Date): string => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+const formatDateShort = (d: Date): string => {
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+};
+
+const generateTitle = (content: string): string => {
+  if (!content.trim()) return "";
+  const firstLine = content.split("\n")[0].trim();
+  return firstLine.slice(0, 20) + (firstLine.length > 20 ? "..." : "");
+};
+
+// Weather icon based on WMO code
+const getWeatherIcon = (wmoCode: number | null): { name: keyof typeof Ionicons.glyphMap; color: string } => {
+  if (wmoCode === null) return { name: "help-outline", color: "#999" };
+  if (wmoCode <= 1) return { name: "sunny", color: "#f97316" }; // 快晴・晴れ
+  if (wmoCode <= 3) return { name: "cloudy", color: "#6b7280" }; // くもり
+  if (wmoCode <= 48) return { name: "cloudy", color: "#6b7280" }; // 霧
+  if (wmoCode <= 67) return { name: "rainy", color: "#3b82f6" }; // 雨
+  if (wmoCode <= 77) return { name: "snow", color: "#22d3ee" }; // 雪
+  if (wmoCode <= 82) return { name: "rainy", color: "#3b82f6" }; // にわか雨
+  if (wmoCode <= 86) return { name: "snow", color: "#22d3ee" }; // にわか雪
+  return { name: "thunderstorm", color: "#8b5cf6" }; // 雷雨
+};
+
+// Format temperature for display
+const formatTemperature = (weather: Weather | null): string | null => {
+  if (!weather) return null;
+  return `${weather.temperatureMin}℃〜${weather.temperatureMax}℃`;
 };
 
 export default function NewDiary() {
@@ -30,14 +59,21 @@ export default function NewDiary() {
   const [date, setDate] = useState(new Date());
   const [content, setContent] = useState("");
   const [location, setLocation] = useState<Location | null>(null);
-  const [weather, setWeather] = useState<string | null>(null);
+  const [weather, setWeather] = useState<Weather | null>(null);
   const [isLoadingWeather, setIsLoadingWeather] = useState(false);
   const [weatherEnabled, setWeatherEnabled] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [isMetaExpanded, setIsMetaExpanded] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const contentRef = useRef({ title, date, content, location, weather });
 
   contentRef.current = { title, date, content, location, weather };
+
+  const autoTitle = useMemo(() => generateTitle(content), [content]);
+  const isAutoTitle = !title.trim();
+  const weatherIcon = getWeatherIcon(weather?.wmoCode ?? null);
+  const temperature = formatTemperature(weather);
 
   useEffect(() => {
     getCurrentLocation().then((loc) => {
@@ -81,7 +117,8 @@ export default function NewDiary() {
   const handleSave = async () => {
     const { title: currentTitle, date: currentDate, content: currentContent, location: currentLocation, weather: currentWeather } = contentRef.current;
     const dateStr = formatDate(currentDate);
-    await createDiary(currentTitle.trim(), dateStr, currentContent.trim(), currentLocation ?? undefined, currentWeather ?? undefined);
+    const finalTitle = currentTitle.trim() || generateTitle(currentContent);
+    await createDiary(finalTitle, dateStr, currentContent.trim(), currentLocation ?? undefined, currentWeather ?? undefined);
     router.back();
   };
 
@@ -97,39 +134,96 @@ export default function NewDiary() {
 
   return (
     <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
-      <Text style={styles.label}>タイトル</Text>
-      <TextInput
-        style={styles.titleInput}
-        value={title}
-        onChangeText={setTitle}
-        placeholder="タイトル（任意）"
-      />
-
-      <Text style={styles.label}>日付</Text>
-      <DateTimePicker
-        value={date}
-        mode="date"
-        display="default"
-        onChange={(_, selectedDate) => {
-          if (selectedDate) setDate(selectedDate);
-        }}
-        style={styles.datePicker}
-      />
-
-      <Text style={styles.label}>場所</Text>
+      {/* Meta Row - Collapsed */}
       <TouchableOpacity
-        style={styles.locationContainer}
-        onPress={() => setShowLocationPicker(true)}
+        style={styles.metaRow}
+        onPress={() => setIsMetaExpanded(!isMetaExpanded)}
       >
-        {location ? (
-          <Text style={styles.locationText}>
-            {location.name || `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`}
-          </Text>
-        ) : (
-          <Text style={styles.locationTextMuted}>タップして場所を選択</Text>
-        )}
-        <Text style={styles.locationChevron}>›</Text>
+        <View style={styles.metaRowLeft}>
+          <Text style={styles.metaDate}>{formatDateShort(date)}</Text>
+          {location?.shortName && (
+            <View style={styles.metaLocation}>
+              <Ionicons name="location-outline" size={14} color="#999" />
+              <Text style={styles.metaLocationText}>{location.shortName}</Text>
+            </View>
+          )}
+          {weather && (
+            <>
+              <Ionicons name={weatherIcon.name} size={18} color={weatherIcon.color} />
+              {temperature && <Text style={styles.metaTemperature}>{temperature}</Text>}
+            </>
+          )}
+        </View>
+        <Ionicons
+          name={isMetaExpanded ? "chevron-up" : "chevron-down"}
+          size={18}
+          color="#999"
+        />
       </TouchableOpacity>
+
+      {/* Meta Row - Expanded */}
+      {isMetaExpanded && (
+        <View style={styles.metaExpanded}>
+          {/* Date */}
+          <View style={styles.metaField}>
+            <Text style={styles.metaLabel}>日付</Text>
+            <TouchableOpacity
+              style={styles.metaInput}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.metaInputText}>{formatDate(date)}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Location */}
+          <View style={styles.metaField}>
+            <Text style={styles.metaLabel}>場所</Text>
+            <TouchableOpacity
+              style={styles.metaInput}
+              onPress={() => setShowLocationPicker(true)}
+            >
+              <Text style={location ? styles.metaInputText : styles.metaInputTextMuted}>
+                {location?.name || location?.shortName || "タップして選択"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Weather */}
+          <View style={styles.metaField}>
+            <Text style={styles.metaLabel}>天気</Text>
+            <View style={styles.weatherDisplay}>
+              {isLoadingWeather ? (
+                <Text style={styles.weatherTextMuted}>取得中...</Text>
+              ) : weather ? (
+                <Text style={styles.weatherText}>{weather.description}  {temperature}</Text>
+              ) : (
+                <Text style={styles.weatherTextMuted}>-</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Title */}
+          <View style={styles.metaField}>
+            <Text style={styles.metaLabel}>題名</Text>
+            <View style={styles.titleInputContainer}>
+              <TextInput
+                style={styles.metaTextInput}
+                value={title}
+                onChangeText={setTitle}
+                placeholder={autoTitle || "本文から自動設定"}
+                placeholderTextColor="#999"
+              />
+              <TouchableOpacity
+                style={[styles.clearButton, isAutoTitle && styles.clearButtonHidden]}
+                onPress={() => setTitle("")}
+                disabled={isAutoTitle}
+              >
+                <Ionicons name="close" size={14} color="#999" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
 
       <LocationPickerModal
         visible={showLocationPicker}
@@ -138,44 +232,21 @@ export default function NewDiary() {
         onSelect={setLocation}
       />
 
-      <Text style={styles.label}>天気</Text>
-      <View style={styles.weatherRow}>
-        <View style={styles.weatherContainer}>
-          {isLoadingWeather ? (
-            <Text style={styles.weatherTextMuted}>取得中...</Text>
-          ) : weather ? (
-            <Text style={styles.weatherText}>{weather}</Text>
-          ) : (
-            <Text style={styles.weatherTextMuted}>
-              {location ? "天気データなし" : "場所を設定すると天気を取得します"}
-            </Text>
-          )}
-        </View>
-        {weatherEnabled && (
-          <RefreshWeatherButton
-            onRefresh={async () => {
-              if (!location) return;
-              setIsLoadingWeather(true);
-              try {
-                const dateStr = formatDate(date);
-                const result = await getWeather(location.latitude, location.longitude, dateStr);
-                setWeather(result);
-              } finally {
-                setIsLoadingWeather(false);
-              }
-            }}
-            disabled={!location || isLoadingWeather}
-          />
-        )}
-      </View>
+      <DatePickerModal
+        visible={showDatePicker}
+        initialDate={date}
+        onClose={() => setShowDatePicker(false)}
+        onSelect={setDate}
+      />
 
-      <Text style={styles.label}>内容</Text>
+      {/* Content */}
       <TextInput
         style={styles.contentInput}
         value={content}
         onChangeText={setContent}
         multiline
-        placeholder="今日の出来事を書いてください..."
+        placeholder="今日あったことを書いてみましょう..."
+        placeholderTextColor="#ccc"
         textAlignVertical="top"
       />
     </View>
@@ -186,7 +257,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    padding: 16,
   },
   headerButton: {
     paddingHorizontal: 16,
@@ -197,76 +267,110 @@ const styles = StyleSheet.create({
     color: "#007AFF",
     fontWeight: "600",
   },
-  label: {
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#e0e0e0",
+  },
+  metaRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  metaDate: {
     fontSize: 14,
     color: "#666",
-    marginBottom: 4,
   },
-  titleInput: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 16,
+  metaTemperature: {
+    fontSize: 14,
+    color: "#666",
   },
-  datePicker: {
-    alignSelf: "flex-start",
-    marginBottom: 16,
-  },
-  contentInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-  },
-  locationContainer: {
+  metaLocation: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
+    gap: 2,
   },
-  locationText: {
-    fontSize: 16,
+  metaLocationText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  metaExpanded: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#e0e0e0",
+    gap: 12,
+  },
+  metaField: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  metaLabel: {
+    fontSize: 14,
+    color: "#999",
+    width: 40,
+  },
+  metaInput: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  metaInputText: {
+    fontSize: 14,
     color: "#333",
-    flex: 1,
   },
-  locationTextMuted: {
-    fontSize: 16,
+  metaInputTextMuted: {
+    fontSize: 14,
     color: "#999",
+  },
+  metaTextInput: {
     flex: 1,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "400",
+    color: "#333",
+    padding: 0,
+    margin: 0,
   },
-  locationChevron: {
-    fontSize: 20,
-    color: "#999",
-    marginLeft: 8,
-  },
-  weatherRow: {
+  titleInputContainer: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
-  },
-  weatherContainer: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: "#ddd",
+    backgroundColor: "#f5f5f5",
     borderRadius: 8,
-    backgroundColor: "#f9f9f9",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  clearButton: {
+    padding: 4,
+  },
+  clearButtonHidden: {
+    opacity: 0,
+  },
+  weatherDisplay: {
+    flex: 1,
   },
   weatherText: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#333",
   },
   weatherTextMuted: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#999",
+  },
+  contentInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#333",
   },
 });

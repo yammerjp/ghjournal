@@ -6,9 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { getDatabaseVersion } from "../lib/database";
+import { getDatabaseVersion, resetDatabase } from "../lib/database";
 import { isWeatherEnabled, setWeatherEnabled } from "../lib/secrets";
 
 export default function Settings() {
@@ -29,6 +30,26 @@ export default function Settings() {
   const handleWeatherToggle = async (value: boolean) => {
     setWeatherEnabledState(value);
     await setWeatherEnabled(value);
+  };
+
+  const handleResetDatabase = () => {
+    Alert.alert(
+      "データベースをリセット",
+      "全ての日記データが削除されます。この操作は取り消せません。",
+      [
+        { text: "キャンセル", style: "cancel" },
+        {
+          text: "リセット",
+          style: "destructive",
+          onPress: async () => {
+            await resetDatabase();
+            const newVersion = await getDatabaseVersion();
+            setDbVersion(newVersion);
+            Alert.alert("完了", "データベースをリセットしました");
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -61,6 +82,16 @@ export default function Settings() {
         >
           <Text style={styles.rowLabel}>デバッグログ</Text>
           <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionHeader}>データ管理</Text>
+        <TouchableOpacity
+          style={styles.dangerRow}
+          onPress={handleResetDatabase}
+        >
+          <Text style={styles.dangerText}>データベースをリセット</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -120,5 +151,18 @@ const styles = StyleSheet.create({
   chevron: {
     fontSize: 20,
     color: "#c6c6c8",
+  },
+  dangerRow: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: "#c6c6c8",
+    alignItems: "center",
+  },
+  dangerText: {
+    fontSize: 17,
+    color: "#FF3B30",
   },
 });

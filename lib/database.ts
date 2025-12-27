@@ -124,3 +124,23 @@ export async function getDatabaseVersion(): Promise<number> {
   const database = await getDatabase();
   return getCurrentVersion(database);
 }
+
+export async function resetDatabase(): Promise<void> {
+  const database = await getDatabase();
+
+  // Get all tables except sqlite internal tables
+  const tables = await database.getAllAsync<TableInfo>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+  );
+
+  // Drop all tables
+  for (const table of tables) {
+    await database.execAsync(`DROP TABLE IF EXISTS "${table.name}"`);
+  }
+
+  // Reset version
+  await setVersion(database, 0);
+
+  // Re-run all migrations
+  await runMigrations(database);
+}

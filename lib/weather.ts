@@ -1,5 +1,6 @@
 import { isWeatherEnabled } from './secrets';
 import { debugLog } from './debug-log';
+import { Weather } from './diary';
 
 // Open-Meteo API response
 interface OpenMeteoResponse {
@@ -43,11 +44,15 @@ const weatherCodeToDescription: Record<number, string> = {
   99: '激しい雷雨(ひょう)',
 };
 
+export function getWeatherDescription(wmoCode: number): string {
+  return weatherCodeToDescription[wmoCode] ?? `天気コード${wmoCode}`;
+}
+
 export async function getWeather(
   latitude: number,
   longitude: number,
   date: string
-): Promise<string | null> {
+): Promise<Weather | null> {
   // Check if weather feature is enabled
   const enabled = await isWeatherEnabled();
   if (!enabled) {
@@ -88,12 +93,17 @@ export async function getWeather(
     const data: OpenMeteoResponse = await response.json();
 
     if (data.daily && data.daily.weather_code && data.daily.weather_code.length > 0) {
-      const weatherCode = data.daily.weather_code[0];
-      const maxTemp = Math.round(data.daily.temperature_2m_max[0]);
-      const minTemp = Math.round(data.daily.temperature_2m_min[0]);
-      const description = weatherCodeToDescription[weatherCode] ?? `天気コード${weatherCode}`;
-      const result = `${description} ${maxTemp}/${minTemp}°C`;
-      await debugLog.info('Weather fetch success', result);
+      const wmoCode = data.daily.weather_code[0];
+      const temperatureMax = Math.round(data.daily.temperature_2m_max[0]);
+      const temperatureMin = Math.round(data.daily.temperature_2m_min[0]);
+      const description = getWeatherDescription(wmoCode);
+      const result: Weather = {
+        wmoCode,
+        description,
+        temperatureMin,
+        temperatureMax,
+      };
+      await debugLog.info('Weather fetch success', JSON.stringify(result));
       return result;
     }
 
