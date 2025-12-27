@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useState } from "react";
 import { Text, View, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Diary, getDiaries } from "../lib/diary";
 
 export default function Index() {
@@ -11,16 +12,9 @@ export default function Index() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerRight: () => (
-        <TouchableOpacity
-          onPress={() => router.push("/diaries/new")}
-          style={styles.headerButton}
-        >
-          <Text style={styles.headerButtonText}>+</Text>
-        </TouchableOpacity>
-      ),
+      headerShown: false,
     });
-  }, [navigation, router]);
+  }, [navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,10 +45,25 @@ export default function Index() {
         data={diaries}
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
         ListEmptyComponent={
           <Text style={styles.emptyText}>日記がありません</Text>
         }
       />
+
+      <TouchableOpacity
+        style={styles.settingsButton}
+        onPress={() => router.push("/settings")}
+      >
+        <Ionicons name="settings-outline" size={24} color="#007AFF" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => router.push("/diaries/new")}
+      >
+        <Ionicons name="add" size={32} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -64,14 +73,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
-  headerButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  headerButtonText: {
-    fontSize: 28,
-    color: "#007AFF",
-    fontWeight: "400",
+  listContent: {
+    paddingTop: 60,
+    paddingBottom: 100,
   },
   diaryItem: {
     padding: 16,
@@ -95,5 +99,30 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 40,
     color: "#999",
+  },
+  settingsButton: {
+    position: "absolute",
+    top: 50,
+    right: 16,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  addButton: {
+    position: "absolute",
+    bottom: 32,
+    right: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#007AFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });

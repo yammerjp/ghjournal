@@ -23,6 +23,7 @@ export default function RootLayout() {
       <Stack.Screen name="index" options={{ title: "日記" }} />
       <Stack.Screen name="diaries/new" options={{ title: "新規作成" }} />
       <Stack.Screen name="diaries/[diaryId]" options={{ title: "日記" }} />
+      <Stack.Screen name="settings" options={{ title: "設定" }} />
     </Stack>
   );
 }

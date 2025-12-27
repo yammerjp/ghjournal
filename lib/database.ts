@@ -49,3 +49,8 @@ export async function initDatabase(): Promise<void> {
   const database = await getDatabase();
   await runMigrations(database);
 }
+
+export async function getDatabaseVersion(): Promise<number> {
+  const database = await getDatabase();
+  return getCurrentVersion(database);
+}
