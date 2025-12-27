@@ -16,6 +16,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Location, Weather, getDiary, updateDiary, deleteDiary, createDiary } from "../lib/diary";
 import { getCurrentLocation } from "../lib/location";
 import { getWeather } from "../lib/weather";
+import { isWeatherEnabled } from "../lib/secrets";
 import LocationPickerModal from "./LocationPickerModal";
 import DatePickerModal from "./DatePickerModal";
 
@@ -102,6 +103,8 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   const [shouldFetchWeather, setShouldFetchWeather] = useState(false);
   // Cooldown for weather refresh (prevent DDoS)
   const [weatherCooldown, setWeatherCooldown] = useState(false);
+  // Weather setting enabled
+  const [weatherEnabled, setWeatherEnabledState] = useState(false);
 
   // Ref for debounced save
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -130,6 +133,11 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
       showSub.remove();
       hideSub.remove();
     };
+  }, []);
+
+  // Load weather setting
+  useEffect(() => {
+    isWeatherEnabled().then(setWeatherEnabledState);
   }, []);
 
   // Load existing diary or initialize new one
@@ -449,12 +457,12 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
             <TouchableOpacity
               style={styles.refreshButton}
               onPress={() => setShouldFetchWeather(true)}
-              disabled={isLoadingWeather || !location || weatherCooldown}
+              disabled={isLoadingWeather || !location || weatherCooldown || !weatherEnabled}
             >
               <Ionicons
                 name="refresh"
                 size={18}
-                color={isLoadingWeather || !location || weatherCooldown ? "#ccc" : "#007AFF"}
+                color={isLoadingWeather || !location || weatherCooldown || !weatherEnabled ? "#ccc" : "#007AFF"}
               />
             </TouchableOpacity>
           </View>
