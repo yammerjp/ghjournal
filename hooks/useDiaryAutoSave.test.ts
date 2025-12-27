@@ -3,14 +3,12 @@ import { useDiaryAutoSave, UseDiaryAutoSaveProps } from './useDiaryAutoSave';
 import { Location, Weather } from '../lib/diary';
 
 jest.mock('../lib/diary', () => ({
-  createDiary: jest.fn(),
-  updateDiary: jest.fn(),
+  saveDraft: jest.fn(),
 }));
 
-import { createDiary, updateDiary } from '../lib/diary';
+import { saveDraft } from '../lib/diary';
 
-const mockCreateDiary = createDiary as jest.Mock;
-const mockUpdateDiary = updateDiary as jest.Mock;
+const mockSaveDraft = saveDraft as jest.Mock;
 
 describe('useDiaryAutoSave', () => {
   const mockLocation: Location = {
@@ -40,8 +38,11 @@ describe('useDiaryAutoSave', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.useFakeTimers();
-    mockCreateDiary.mockResolvedValue({ id: 'new-diary-id' });
-    mockUpdateDiary.mockResolvedValue(true);
+    mockSaveDraft.mockResolvedValue({
+      diaryId: 'new-diary-id',
+      createdAt: '2024-01-15T10:00:00Z',
+      updatedAt: '2024-01-15T10:00:00Z',
+    });
   });
 
   afterEach(() => {
@@ -81,13 +82,12 @@ describe('useDiaryAutoSave', () => {
         jest.advanceTimersByTime(600);
       });
 
-      expect(mockCreateDiary).not.toHaveBeenCalled();
-      expect(mockUpdateDiary).not.toHaveBeenCalled();
+      expect(mockSaveDraft).not.toHaveBeenCalled();
     });
   });
 
-  describe('create new diary', () => {
-    it('should create diary after debounce when content changes', async () => {
+  describe('save draft', () => {
+    it('should save draft after debounce when content changes', async () => {
       const { result, rerender } = renderHook(
         (props: UseDiaryAutoSaveProps) => useDiaryAutoSave(props),
         { initialProps: { ...defaultProps, enabled: true } }
@@ -101,16 +101,17 @@ describe('useDiaryAutoSave', () => {
       });
 
       await waitFor(() => {
-        expect(mockCreateDiary).toHaveBeenCalledWith(
-          'Hello world',
-          '2024-01-15',
-          'Hello world',
-          undefined,
-          undefined
-        );
+        expect(mockSaveDraft).toHaveBeenCalledWith({
+          diaryId: null,
+          title: 'Hello world',
+          date: '2024-01-15',
+          content: 'Hello world',
+          location: undefined,
+          weather: undefined,
+        });
         expect(result.current.diaryId).toBe('new-diary-id');
-        expect(result.current.createdAt).not.toBeNull();
-        expect(result.current.updatedAt).not.toBeNull();
+        expect(result.current.createdAt).toBe('2024-01-15T10:00:00Z');
+        expect(result.current.updatedAt).toBe('2024-01-15T10:00:00Z');
       });
     });
 
@@ -132,13 +133,14 @@ describe('useDiaryAutoSave', () => {
       });
 
       await waitFor(() => {
-        expect(mockCreateDiary).toHaveBeenCalledWith(
-          'My Title',
-          '2024-01-15',
-          'Hello world',
-          undefined,
-          undefined
-        );
+        expect(mockSaveDraft).toHaveBeenCalledWith({
+          diaryId: null,
+          title: 'My Title',
+          date: '2024-01-15',
+          content: 'Hello world',
+          location: undefined,
+          weather: undefined,
+        });
       });
     });
 
@@ -161,13 +163,14 @@ describe('useDiaryAutoSave', () => {
       });
 
       await waitFor(() => {
-        expect(mockCreateDiary).toHaveBeenCalledWith(
-          'Hello',
-          '2024-01-15',
-          'Hello',
-          mockLocation,
-          mockWeather
-        );
+        expect(mockSaveDraft).toHaveBeenCalledWith({
+          diaryId: null,
+          title: 'Hello',
+          date: '2024-01-15',
+          content: 'Hello',
+          location: mockLocation,
+          weather: mockWeather,
+        });
       });
     });
   });
@@ -185,8 +188,8 @@ describe('useDiaryAutoSave', () => {
         await Promise.resolve();
       });
 
-      // Should not have called update (just initialized tracking)
-      expect(mockUpdateDiary).not.toHaveBeenCalled();
+      // Should not have called saveDraft (just initialized tracking)
+      expect(mockSaveDraft).not.toHaveBeenCalled();
 
       // Now make an actual change
       rerender({
@@ -201,17 +204,17 @@ describe('useDiaryAutoSave', () => {
         await Promise.resolve();
       });
 
-      // Now update should be called
+      // Now saveDraft should be called with diaryId
       await waitFor(() => {
-        expect(mockUpdateDiary).toHaveBeenCalledTimes(1);
-        expect(mockUpdateDiary).toHaveBeenCalledWith(
-          'existing-id',
-          'Changed content',
-          '2024-01-15',
-          'Changed content',
-          null,
-          null
-        );
+        expect(mockSaveDraft).toHaveBeenCalledTimes(1);
+        expect(mockSaveDraft).toHaveBeenCalledWith({
+          diaryId: 'existing-id',
+          title: 'Changed content',
+          date: '2024-01-15',
+          content: 'Changed content',
+          location: undefined,
+          weather: undefined,
+        });
       });
     });
 
@@ -234,22 +237,28 @@ describe('useDiaryAutoSave', () => {
         content: 'Updated content',
       });
 
+      mockSaveDraft.mockResolvedValue({
+        diaryId: 'existing-id',
+        createdAt: '2024-01-15T10:00:00Z',
+        updatedAt: '2024-01-15T11:00:00Z',
+      });
+
       await act(async () => {
         jest.advanceTimersByTime(600);
         await Promise.resolve();
       });
 
       await waitFor(() => {
-        expect(mockUpdateDiary).toHaveBeenCalledWith(
-          'existing-id',
-          'Updated content',
-          '2024-01-15',
-          'Updated content',
-          null,
-          null
-        );
+        expect(mockSaveDraft).toHaveBeenCalledWith({
+          diaryId: 'existing-id',
+          title: 'Updated content',
+          date: '2024-01-15',
+          content: 'Updated content',
+          location: undefined,
+          weather: undefined,
+        });
         expect(result.current.diaryId).toBe('existing-id');
-        expect(result.current.updatedAt).not.toBeNull();
+        expect(result.current.updatedAt).toBe('2024-01-15T11:00:00Z');
       });
     });
   });
@@ -277,14 +286,15 @@ describe('useDiaryAutoSave', () => {
       });
 
       await waitFor(() => {
-        expect(mockCreateDiary).toHaveBeenCalledTimes(1);
-        expect(mockCreateDiary).toHaveBeenCalledWith(
-          'Third',
-          '2024-01-15',
-          'Third',
-          undefined,
-          undefined
-        );
+        expect(mockSaveDraft).toHaveBeenCalledTimes(1);
+        expect(mockSaveDraft).toHaveBeenCalledWith({
+          diaryId: null,
+          title: 'Third',
+          date: '2024-01-15',
+          content: 'Third',
+          location: undefined,
+          weather: undefined,
+        });
       });
     });
   });
@@ -302,7 +312,7 @@ describe('useDiaryAutoSave', () => {
       });
 
       await waitFor(() => {
-        expect(mockCreateDiary).toHaveBeenCalledTimes(1);
+        expect(mockSaveDraft).toHaveBeenCalledTimes(1);
       });
 
       // Trigger again with same content
@@ -312,7 +322,7 @@ describe('useDiaryAutoSave', () => {
       });
 
       // Should still be 1 call
-      expect(mockCreateDiary).toHaveBeenCalledTimes(1);
+      expect(mockSaveDraft).toHaveBeenCalledTimes(1);
     });
   });
 

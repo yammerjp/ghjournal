@@ -90,7 +90,7 @@ export default function Index() {
     return (
       <TouchableOpacity
         style={styles.diaryItem}
-        onPress={() => router.push(`/diaries/${item.id}`)}
+        onPress={() => router.push(`/diaries/${item.diary_id}`)}
       >
         <View style={styles.dateColumn}>
           <Text style={styles.weekday}>{weekday}</Text>

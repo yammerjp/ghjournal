@@ -1,13 +1,17 @@
+import "react-native-get-random-values"; // Must be first for crypto polyfill
 import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
 import { initDatabase } from "../lib/database";
+import { commitAllSealedDrafts } from "../lib/diary";
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    initDatabase().then(() => setIsReady(true));
+    initDatabase()
+      .then(() => commitAllSealedDrafts())
+      .then(() => setIsReady(true));
   }, []);
 
   if (!isReady) {

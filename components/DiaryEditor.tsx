@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Location, getDiary, deleteDiary } from "../lib/diary";
+import { Location, getDiaryForEdit, deleteDiary, commitDraft } from "../lib/diary";
 import { getCurrentLocation } from "../lib/location";
 import {
   formatDate,
@@ -113,8 +113,8 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
         setInitialLoadComplete(true);
       });
     } else {
-      // Existing diary: load from DB
-      getDiary(diaryId!).then((d) => {
+      // Existing diary: load from DB (draft or committed version)
+      getDiaryForEdit(diaryId!).then((d) => {
         if (d) {
           const loadedWeather =
             d.weather_wmo_code !== null &&
@@ -242,6 +242,14 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
     }
   };
 
+  // Commit draft and go back
+  const handleGoBack = useCallback(async () => {
+    if (diaryDbId) {
+      await commitDraft(diaryDbId);
+    }
+    router.back();
+  }, [diaryDbId, router]);
+
   // Header setup
   useLayoutEffect(() => {
     const headerTitle = isNew ? "新規作成" : formatDate(date).replace(/-/g, "/");
@@ -249,7 +257,7 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
     navigation.setOptions({
       title: headerTitle,
       headerLeft: () => (
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+        <TouchableOpacity onPress={handleGoBack} style={styles.headerButton}>
           <Ionicons name="chevron-back" size={24} color="#007AFF" />
         </TouchableOpacity>
       ),
@@ -259,7 +267,7 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
         </TouchableOpacity>
       ),
     });
-  }, [navigation, isNew, date, diaryDbId]);
+  }, [navigation, isNew, date, diaryDbId, handleGoBack]);
 
   if (loading) {
     return (

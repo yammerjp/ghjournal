@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Location, Weather, createDiary, updateDiary } from '../lib/diary';
+import { Location, Weather, saveDraft } from '../lib/diary';
 
 const DEBOUNCE_MS = 500;
 
@@ -92,26 +92,20 @@ export function useDiaryAutoSave({
     }
 
     setIsSaving(true);
-    const now = new Date().toISOString();
 
     try {
-      if (diaryId) {
-        // Update existing
-        await updateDiary(diaryId, currentTitle, currentDate, currentContent, location, weather);
-        setUpdatedAt(now);
-      } else {
-        // Create new
-        const newDiary = await createDiary(
-          currentTitle,
-          currentDate,
-          currentContent,
-          location ?? undefined,
-          weather ?? undefined
-        );
-        setDiaryId(newDiary.id);
-        setCreatedAt(now);
-        setUpdatedAt(now);
-      }
+      const result = await saveDraft({
+        diaryId,
+        title: currentTitle,
+        date: currentDate,
+        content: currentContent,
+        location: location ?? undefined,
+        weather: weather ?? undefined,
+      });
+
+      setDiaryId(result.diaryId);
+      setCreatedAt(result.createdAt);
+      setUpdatedAt(result.updatedAt);
 
       // Update last saved state
       lastSavedRef.current = {

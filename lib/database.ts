@@ -1,5 +1,7 @@
 import * as SQLite from 'expo-sqlite';
-import migrations from './migrations.json';
+import { v7 as uuidv7 } from 'uuid';
+import localMigrations from './migrations/local.json';
+import streamMigrations from './migrations/stream.json';
 
 interface Migration {
   version: number;
@@ -7,26 +9,55 @@ interface Migration {
   sql: string;
 }
 
-interface TableInfo {
-  name: string;
+let localDb: SQLite.SQLiteDatabase | null = null;
+let streamDb: SQLite.SQLiteDatabase | null = null;
+let streamId: string | null = null;
+
+// For testing
+export function setLocalDatabase(database: SQLite.SQLiteDatabase): void {
+  localDb = database;
 }
 
-interface ColumnInfo {
-  name: string;
-  type: string;
+export function setStreamDatabase(database: SQLite.SQLiteDatabase): void {
+  streamDb = database;
 }
 
-let db: SQLite.SQLiteDatabase | null = null;
-
-export function setDatabase(database: SQLite.SQLiteDatabase): void {
-  db = database;
+export function resetStreamId(): void {
+  streamId = null;
 }
 
-export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (!db) {
-    db = await SQLite.openDatabaseAsync('diary.db');
+export async function getLocalDatabase(): Promise<SQLite.SQLiteDatabase> {
+  if (!localDb) {
+    localDb = await SQLite.openDatabaseAsync('local.sqlite3');
   }
-  return db;
+  return localDb;
+}
+
+export async function getStreamDatabase(): Promise<SQLite.SQLiteDatabase> {
+  if (!streamDb) {
+    const id = await getStreamId();
+    streamDb = await SQLite.openDatabaseAsync(`${id}.sqlite3`);
+  }
+  return streamDb;
+}
+
+export async function getStreamId(): Promise<string> {
+  if (!streamId) {
+    const localDb = await getLocalDatabase();
+    const result = await localDb.getFirstAsync<{ value: string }>(
+      "SELECT value FROM settings WHERE key = 'current_stream_id'"
+    );
+    if (result) {
+      streamId = result.value;
+    } else {
+      streamId = uuidv7();
+      await localDb.runAsync(
+        "INSERT INTO settings (key, value) VALUES ('current_stream_id', ?)",
+        [streamId]
+      );
+    }
+  }
+  return streamId;
 }
 
 async function getCurrentVersion(database: SQLite.SQLiteDatabase): Promise<number> {
@@ -40,107 +71,66 @@ async function setVersion(database: SQLite.SQLiteDatabase, version: number): Pro
   await database.execAsync(`PRAGMA user_version = ${version}`);
 }
 
-async function getSchemaInfo(database: SQLite.SQLiteDatabase): Promise<string> {
-  const tables = await database.getAllAsync<TableInfo>(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-  );
-
-  const schemaLines: string[] = [];
-  for (const table of tables) {
-    const columns = await database.getAllAsync<ColumnInfo>(
-      `PRAGMA table_info(${table.name})`
-    );
-    const columnDefs = columns.map(c => `${c.name}:${c.type}`).join(', ');
-    schemaLines.push(`${table.name}(${columnDefs})`);
-  }
-
-  return schemaLines.join('\n');
-}
-
-async function hasDebugLogsTable(database: SQLite.SQLiteDatabase): Promise<boolean> {
-  const result = await database.getFirstAsync<{ count: number }>(
-    "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='debug_logs'"
-  );
-  return (result?.count ?? 0) > 0;
-}
-
-async function writeLog(
+async function runMigrations(
   database: SQLite.SQLiteDatabase,
-  level: string,
-  message: string,
-  details?: string
+  migrations: Migration[]
 ): Promise<void> {
-  if (!(await hasDebugLogsTable(database))) {
-    return;
-  }
-  const timestamp = new Date().toISOString();
-  await database.runAsync(
-    'INSERT INTO debug_logs (timestamp, level, message, details) VALUES (?, ?, ?, ?)',
-    [timestamp, level, message, details ?? null]
-  );
-}
-
-async function runMigrations(database: SQLite.SQLiteDatabase): Promise<void> {
   const currentVersion = await getCurrentVersion(database);
-  const sortedMigrations = (migrations as Migration[]).sort((a, b) => a.version - b.version);
-
+  const sortedMigrations = migrations.sort((a, b) => a.version - b.version);
   const pendingMigrations = sortedMigrations.filter(m => m.version > currentVersion);
-  if (pendingMigrations.length === 0) {
-    return;
-  }
-
-  // Log schema before migrations
-  const schemaBefore = await getSchemaInfo(database);
-  await writeLog(database, 'info', 'Migration started', `Version: ${currentVersion}\nSchema:\n${schemaBefore}`);
 
   for (const migration of pendingMigrations) {
-    await writeLog(database, 'info', `Running migration v${migration.version}`, migration.description);
     console.log(`[Migration] Running migration v${migration.version}: ${migration.description}`);
-
-    try {
-      await database.execAsync(migration.sql);
-      await setVersion(database, migration.version);
-      await writeLog(database, 'info', `Completed migration v${migration.version}`);
-      console.log(`[Migration] Completed migration v${migration.version}`);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      await writeLog(database, 'error', `Migration v${migration.version} failed`, errorMessage);
-      throw error;
-    }
+    await database.execAsync(migration.sql);
+    await setVersion(database, migration.version);
+    console.log(`[Migration] Completed migration v${migration.version}`);
   }
+}
 
-  // Log schema after migrations
-  const schemaAfter = await getSchemaInfo(database);
-  const finalVersion = await getCurrentVersion(database);
-  await writeLog(database, 'info', 'Migration completed', `Version: ${finalVersion}\nSchema:\n${schemaAfter}`);
+export async function initLocalDatabase(): Promise<void> {
+  const database = await getLocalDatabase();
+  await runMigrations(database, localMigrations as Migration[]);
+}
+
+export async function initStreamDatabase(): Promise<void> {
+  const database = await getStreamDatabase();
+  await runMigrations(database, streamMigrations as Migration[]);
+}
+
+// Legacy compatibility - will be removed after migration
+export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
+  return getLocalDatabase();
 }
 
 export async function initDatabase(): Promise<void> {
-  const database = await getDatabase();
-  await runMigrations(database);
+  await initLocalDatabase();
+  await initStreamDatabase();
 }
 
 export async function getDatabaseVersion(): Promise<number> {
-  const database = await getDatabase();
+  const database = await getLocalDatabase();
   return getCurrentVersion(database);
 }
 
 export async function resetDatabase(): Promise<void> {
-  const database = await getDatabase();
+  const database = await getLocalDatabase();
 
-  // Get all tables except sqlite internal tables
-  const tables = await database.getAllAsync<TableInfo>(
-    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+  // Get all tables and views
+  const objects = await database.getAllAsync<{ name: string; type: string }>(
+    "SELECT name, type FROM sqlite_master WHERE (type='table' OR type='view') AND name NOT LIKE 'sqlite_%'"
   );
 
-  // Drop all tables
-  for (const table of tables) {
-    await database.execAsync(`DROP TABLE IF EXISTS "${table.name}"`);
+  // Drop all views first, then tables
+  for (const obj of objects.filter(o => o.type === 'view')) {
+    await database.execAsync(`DROP VIEW IF EXISTS "${obj.name}"`);
+  }
+  for (const obj of objects.filter(o => o.type === 'table')) {
+    await database.execAsync(`DROP TABLE IF EXISTS "${obj.name}"`);
   }
 
   // Reset version
   await setVersion(database, 0);
 
   // Re-run all migrations
-  await runMigrations(database);
+  await runMigrations(database, localMigrations as Migration[]);
 }
