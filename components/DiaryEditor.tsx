@@ -4,7 +4,6 @@ import {
   View,
   TextInput,
   TouchableOpacity,
-  Keyboard,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -15,10 +14,10 @@ import { useRouter, useNavigation } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Location, Weather, getDiary, updateDiary, deleteDiary, createDiary } from "../lib/diary";
 import { getCurrentLocation } from "../lib/location";
-import { getWeather } from "../lib/weather";
-import { isWeatherEnabled } from "../lib/secrets";
 import LocationPickerModal from "./LocationPickerModal";
 import DatePickerModal from "./DatePickerModal";
+import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
+import { useWeatherFetch } from "../hooks/useWeatherFetch";
 
 interface DiaryEditorProps {
   diaryId: string | null;
@@ -80,31 +79,34 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
 
   const isNew = diaryId === null;
 
+  // Diary data states
   const [diaryDbId, setDiaryDbId] = useState<string | null>(diaryId);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<Date>(new Date());
   const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(!isNew);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [location, setLocation] = useState<Location | null>(null);
-  const [weather, setWeather] = useState<Weather | null>(null);
-  const [isLoadingWeather, setIsLoadingWeather] = useState(false);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
-  const [isMetaExpanded, setIsMetaExpanded] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Track if user has made any edits (for new diary)
+  // UI states
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isMetaExpanded, setIsMetaExpanded] = useState(false);
+
+  // Other states
+  const [loading, setLoading] = useState(!isNew);
   const [userHasEdited, setUserHasEdited] = useState(false);
-  // Track initial auto-fill completion
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  // Track if date or location has been changed by user (to trigger weather fetch)
-  const [shouldFetchWeather, setShouldFetchWeather] = useState(false);
-  // Cooldown for weather refresh (prevent DDoS)
-  const [weatherCooldown, setWeatherCooldown] = useState(false);
-  // Weather setting enabled
-  const [weatherEnabled, setWeatherEnabledState] = useState(false);
+
+  // Custom hooks
+  const keyboardHeight = useKeyboardHeight();
+  const {
+    weather,
+    isLoading: isLoadingWeather,
+    canRefresh: canRefreshWeather,
+    refresh: refreshWeather,
+    setWeather,
+  } = useWeatherFetch(location, date);
 
   // Ref for debounced save
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -121,109 +123,63 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   const weatherIcon = getWeatherIcon(weather?.wmoCode ?? null);
   const temperature = formatTemperature(weather);
 
-  // Keyboard listeners
-  useEffect(() => {
-    const showSub = Keyboard.addListener("keyboardWillShow", (e) => {
-      setKeyboardHeight(e.endCoordinates.height);
-    });
-    const hideSub = Keyboard.addListener("keyboardWillHide", () => {
-      setKeyboardHeight(0);
-    });
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  // Load weather setting
-  useEffect(() => {
-    isWeatherEnabled().then(setWeatherEnabledState);
-  }, []);
-
   // Load existing diary or initialize new one
   useEffect(() => {
     if (isNew) {
-      // New diary: get current location and fetch weather
+      // New diary: get current location
       getCurrentLocation().then((loc) => {
         setLocation(loc);
-        setShouldFetchWeather(true); // New diary should fetch weather
         setInitialLoadComplete(true);
       });
     } else {
       // Existing diary: load from DB
       getDiary(diaryId!).then((d) => {
         if (d) {
+          const loadedWeather =
+            d.weather_wmo_code !== null &&
+            d.weather_description !== null &&
+            d.weather_temperature_min !== null &&
+            d.weather_temperature_max !== null
+              ? {
+                  wmoCode: d.weather_wmo_code,
+                  description: d.weather_description,
+                  temperatureMin: d.weather_temperature_min,
+                  temperatureMax: d.weather_temperature_max,
+                }
+              : null;
+
+          const loadedLocation =
+            d.location_latitude && d.location_longitude
+              ? {
+                  latitude: d.location_latitude,
+                  longitude: d.location_longitude,
+                  name: d.location_description ?? undefined,
+                  shortName: d.location_city ?? undefined,
+                }
+              : null;
+
           setTitle(d.title);
           setDate(parseDate(d.date));
           setContent(d.content);
-          if (d.weather_wmo_code !== null && d.weather_description !== null && d.weather_temperature_min !== null && d.weather_temperature_max !== null) {
-            setWeather({
-              wmoCode: d.weather_wmo_code,
-              description: d.weather_description,
-              temperatureMin: d.weather_temperature_min,
-              temperatureMax: d.weather_temperature_max,
-            });
-          }
-          if (d.location_latitude && d.location_longitude) {
-            setLocation({
-              latitude: d.location_latitude,
-              longitude: d.location_longitude,
-              name: d.location_description ?? undefined,
-              shortName: d.location_city ?? undefined,
-            });
-          }
+          setLocation(loadedLocation);
+          setWeather(loadedWeather);
           setCreatedAt(d.created_at);
           setUpdatedAt(d.updated_at);
+
           // Set initial saved state
           lastSavedRef.current = {
             title: d.title,
             date: d.date,
             content: d.content,
-            location: d.location_latitude && d.location_longitude ? {
-              latitude: d.location_latitude,
-              longitude: d.location_longitude,
-              name: d.location_description ?? undefined,
-              shortName: d.location_city ?? undefined,
-            } : null,
-            weather: d.weather_wmo_code !== null ? {
-              wmoCode: d.weather_wmo_code,
-              description: d.weather_description!,
-              temperatureMin: d.weather_temperature_min!,
-              temperatureMax: d.weather_temperature_max!,
-            } : null,
+            location: loadedLocation,
+            weather: loadedWeather,
           };
         }
         setLoading(false);
         setInitialLoadComplete(true);
       });
     }
-  }, [diaryId, isNew]);
-
-  // Fetch weather only when explicitly triggered (new diary or date/location changed by user)
-  useEffect(() => {
-    if (!shouldFetchWeather) return;
-
-    const fetchWeather = async () => {
-      if (!location) {
-        setWeather(null);
-        setShouldFetchWeather(false);
-        return;
-      }
-      setIsLoadingWeather(true);
-      try {
-        const dateStr = formatDate(date);
-        const result = await getWeather(location.latitude, location.longitude, dateStr);
-        setWeather(result);
-      } finally {
-        setIsLoadingWeather(false);
-        setShouldFetchWeather(false);
-        // Start cooldown
-        setWeatherCooldown(true);
-        setTimeout(() => setWeatherCooldown(false), 10000);
-      }
-    };
-    fetchWeather();
-  }, [shouldFetchWeather, date, location]);
+  }, [diaryId, isNew, setWeather]);
 
   // Auto-save function
   const performSave = useCallback(async () => {
@@ -308,13 +264,11 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   const handleDateChange = (newDate: Date) => {
     setDate(newDate);
     setUserHasEdited(true);
-    setShouldFetchWeather(true); // Trigger weather fetch when date changes
   };
 
   const handleLocationChange = (newLocation: Location | null) => {
     setLocation(newLocation);
     setUserHasEdited(true);
-    setShouldFetchWeather(true); // Trigger weather fetch when location changes
   };
 
   const handleDelete = () => {
@@ -456,13 +410,13 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
             </View>
             <TouchableOpacity
               style={styles.refreshButton}
-              onPress={() => setShouldFetchWeather(true)}
-              disabled={isLoadingWeather || !location || weatherCooldown || !weatherEnabled}
+              onPress={refreshWeather}
+              disabled={!canRefreshWeather}
             >
               <Ionicons
                 name="refresh"
                 size={18}
-                color={isLoadingWeather || !location || weatherCooldown || !weatherEnabled ? "#ccc" : "#007AFF"}
+                color={canRefreshWeather ? "#007AFF" : "#ccc"}
               />
             </TouchableOpacity>
           </View>
