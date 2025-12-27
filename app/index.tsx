@@ -1,9 +1,35 @@
-import { useCallback, useLayoutEffect, useState } from "react";
-import { Text, View, FlatList, TouchableOpacity, StyleSheet } from "react-native";
+import { useCallback, useLayoutEffect, useState, useMemo } from "react";
+import { Text, View, SectionList, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Diary, getDiaries } from "../lib/diary";
+
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+const parseDate = (dateStr: string): Date => {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const formatYearMonth = (dateStr: string): string => {
+  const [year, month] = dateStr.split("-");
+  return `${year}年${parseInt(month, 10)}月`;
+};
+
+const getDay = (dateStr: string): number => {
+  return parseInt(dateStr.split("-")[2], 10);
+};
+
+const getWeekday = (dateStr: string): string => {
+  const date = parseDate(dateStr);
+  return WEEKDAYS[date.getDay()];
+};
+
+interface Section {
+  title: string;
+  data: Diary[];
+}
 
 export default function Index() {
   const router = useRouter();
@@ -22,41 +48,79 @@ export default function Index() {
     }, [])
   );
 
-  const renderItem = ({ item }: { item: Diary }) => (
-    <TouchableOpacity
-      style={styles.diaryItem}
-      onPress={() => router.push(`/diaries/${item.id}`)}
-    >
-      <Text style={styles.diaryDate}>{item.date}</Text>
-      {item.title ? (
-        <Text style={styles.diaryTitle} numberOfLines={1}>
-          {item.title}
-        </Text>
-      ) : null}
-      <Text style={styles.diaryContent} numberOfLines={2}>
-        {item.content}
-      </Text>
-    </TouchableOpacity>
+  // Group diaries by year-month
+  const sections = useMemo((): Section[] => {
+    const grouped = new Map<string, Diary[]>();
+
+    for (const diary of diaries) {
+      const yearMonth = diary.date.slice(0, 7); // "2025-12"
+      const existing = grouped.get(yearMonth) || [];
+      existing.push(diary);
+      grouped.set(yearMonth, existing);
+    }
+
+    return Array.from(grouped.entries()).map(([yearMonth, data]) => ({
+      title: formatYearMonth(yearMonth + "-01"),
+      data,
+    }));
+  }, [diaries]);
+
+  const renderSectionHeader = ({ section }: { section: Section }) => (
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionHeaderText}>{section.title}</Text>
+    </View>
   );
+
+  const renderItem = ({ item }: { item: Diary }) => {
+    const day = getDay(item.date);
+    const weekday = getWeekday(item.date);
+
+    return (
+      <TouchableOpacity
+        style={styles.diaryItem}
+        onPress={() => router.push(`/diaries/${item.id}`)}
+      >
+        <View style={styles.dateColumn}>
+          <Text style={styles.weekday}>{weekday}</Text>
+          <Text style={styles.day}>{day}</Text>
+        </View>
+        <View style={styles.contentColumn}>
+          {item.title ? (
+            <Text style={styles.diaryTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+          ) : null}
+          <Text style={styles.diaryContent} numberOfLines={2}>
+            {item.content}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={diaries}
-        keyExtractor={(item) => item.id.toString()}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>日記</Text>
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={() => router.push("/settings")}
+        >
+          <Ionicons name="settings-outline" size={24} color="#007AFF" />
+        </TouchableOpacity>
+      </View>
+
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
+        renderSectionHeader={renderSectionHeader}
+        stickySectionHeadersEnabled={true}
         ListEmptyComponent={
           <Text style={styles.emptyText}>日記がありません</Text>
         }
+        contentContainerStyle={styles.listContent}
       />
-
-      <TouchableOpacity
-        style={styles.settingsButton}
-        onPress={() => router.push("/settings")}
-      >
-        <Ionicons name="settings-outline" size={24} color="#007AFF" />
-      </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.addButton}
@@ -73,27 +137,73 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 54,
+    paddingBottom: 8,
+    paddingHorizontal: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#e0e0e0",
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#333",
+  },
   listContent: {
-    paddingTop: 60,
     paddingBottom: 100,
   },
+  sectionHeader: {
+    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#e0e0e0",
+  },
+  sectionHeaderText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#333",
+  },
   diaryItem: {
-    padding: 16,
-    borderBottomWidth: 1,
+    flexDirection: "row",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#eee",
   },
-  diaryDate: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 4,
+  dateColumn: {
+    width: 40,
+    alignItems: "center",
+    marginRight: 12,
+  },
+  weekday: {
+    fontSize: 12,
+    color: "#999",
+    marginBottom: 2,
+  },
+  day: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#333",
+  },
+  contentColumn: {
+    flex: 1,
+    justifyContent: "center",
   },
   diaryTitle: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#333",
     marginBottom: 4,
   },
   diaryContent: {
-    fontSize: 16,
+    fontSize: 14,
+    color: "#666",
+    lineHeight: 20,
   },
   emptyText: {
     textAlign: "center",
@@ -101,13 +211,7 @@ const styles = StyleSheet.create({
     color: "#999",
   },
   settingsButton: {
-    position: "absolute",
-    top: 50,
-    right: 16,
-    width: 44,
-    height: 44,
-    justifyContent: "center",
-    alignItems: "center",
+    padding: 4,
   },
   addButton: {
     position: "absolute",
