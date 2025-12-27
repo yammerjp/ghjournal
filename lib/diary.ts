@@ -5,6 +5,7 @@ export interface Location {
   latitude: number;
   longitude: number;
   name?: string;
+  shortName?: string;
 }
 
 export interface Diary {

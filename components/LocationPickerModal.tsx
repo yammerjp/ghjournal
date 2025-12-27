@@ -71,7 +71,7 @@ export default function LocationPickerModal({
     }
   }, [visible, initialLocation]);
 
-  const reverseGeocode = async (latitude: number, longitude: number) => {
+  const reverseGeocode = async (latitude: number, longitude: number): Promise<{ name?: string; shortName?: string }> => {
     try {
       const addresses = await ExpoLocation.reverseGeocodeAsync({
         latitude,
@@ -86,19 +86,22 @@ export default function LocationPickerModal({
           addr.streetNumber,
           addr.name,
         ].filter(Boolean);
-        return parts.join(" ");
+        return {
+          name: parts.join(" "),
+          shortName: addr.city || undefined,
+        };
       }
     } catch (error) {
       console.error("Failed to reverse geocode:", error);
     }
-    return undefined;
+    return {};
   };
 
   const handleMapPress = async (event: MapPressEvent) => {
     const { latitude, longitude } = event.nativeEvent.coordinate;
     setLoading(true);
-    const name = await reverseGeocode(latitude, longitude);
-    setSelectedLocation({ latitude, longitude, name });
+    const { name, shortName } = await reverseGeocode(latitude, longitude);
+    setSelectedLocation({ latitude, longitude, name, shortName });
     setLocationName(name);
     setLoading(false);
   };
