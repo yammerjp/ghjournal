@@ -3,22 +3,24 @@ import { getDatabase } from './database';
 
 export interface Diary {
   id: string;
+  title: string;
   date: string;
   content: string;
   created_at: string;
   updated_at: string;
 }
 
-export async function createDiary(date: string, content: string): Promise<Diary> {
+export async function createDiary(title: string, date: string, content: string): Promise<Diary> {
   const database = await getDatabase();
   const id = Crypto.randomUUID();
   const now = new Date().toISOString();
   await database.runAsync(
-    'INSERT INTO diaries (id, date, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-    [id, date, content, now, now]
+    'INSERT INTO diaries (id, title, date, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, title, date, content, now, now]
   );
   return {
     id,
+    title,
     date,
     content,
     created_at: now,
@@ -45,14 +47,15 @@ export async function getDiary(id: string): Promise<Diary | null> {
 
 export async function updateDiary(
   id: string,
+  title: string,
   date: string,
   content: string
 ): Promise<boolean> {
   const database = await getDatabase();
   const now = new Date().toISOString();
   const result = await database.runAsync(
-    'UPDATE diaries SET date = ?, content = ?, updated_at = ? WHERE id = ?',
-    [date, content, now, id]
+    'UPDATE diaries SET title = ?, date = ?, content = ?, updated_at = ? WHERE id = ?',
+    [title, date, content, now, id]
   );
   return result.changes > 0;
 }

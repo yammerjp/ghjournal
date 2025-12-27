@@ -21,12 +21,13 @@ const formatDate = (d: Date): string => {
 export default function NewDiary() {
   const router = useRouter();
   const navigation = useNavigation();
+  const [title, setTitle] = useState("");
   const [date, setDate] = useState(new Date());
   const [content, setContent] = useState("");
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const contentRef = useRef({ date, content });
+  const contentRef = useRef({ title, date, content });
 
-  contentRef.current = { date, content };
+  contentRef.current = { title, date, content };
 
   useEffect(() => {
     const showSub = Keyboard.addListener("keyboardWillShow", (e) => {
@@ -42,8 +43,8 @@ export default function NewDiary() {
   }, []);
 
   const handleSave = async () => {
-    const { date: currentDate, content: currentContent } = contentRef.current;
-    await createDiary(formatDate(currentDate), currentContent.trim());
+    const { title: currentTitle, date: currentDate, content: currentContent } = contentRef.current;
+    await createDiary(currentTitle.trim(), formatDate(currentDate), currentContent.trim());
     router.back();
   };
 
@@ -59,6 +60,14 @@ export default function NewDiary() {
 
   return (
     <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
+      <Text style={styles.label}>タイトル</Text>
+      <TextInput
+        style={styles.titleInput}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="タイトル（任意）"
+      />
+
       <Text style={styles.label}>日付</Text>
       <DateTimePicker
         value={date}
@@ -102,6 +111,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginBottom: 4,
+  },
+  titleInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 16,
   },
   datePicker: {
     alignSelf: "flex-start",

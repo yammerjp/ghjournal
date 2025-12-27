@@ -34,6 +34,11 @@ export default function Index() {
       onPress={() => router.push(`/diaries/${item.id}`)}
     >
       <Text style={styles.diaryDate}>{item.date}</Text>
+      {item.title ? (
+        <Text style={styles.diaryTitle} numberOfLines={1}>
+          {item.title}
+        </Text>
+      ) : null}
       <Text style={styles.diaryContent} numberOfLines={2}>
         {item.content}
       </Text>
@@ -76,6 +81,11 @@ const styles = StyleSheet.create({
   diaryDate: {
     fontSize: 14,
     color: "#666",
+    marginBottom: 4,
+  },
+  diaryTitle: {
+    fontSize: 16,
+    fontWeight: "600",
     marginBottom: 4,
   },
   diaryContent: {

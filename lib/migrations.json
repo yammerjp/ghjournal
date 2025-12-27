@@ -8,5 +8,10 @@
     "version": 2,
     "description": "Migrate id from INTEGER to TEXT (UUID)",
     "sql": "CREATE TABLE IF NOT EXISTS diaries_new (id TEXT PRIMARY KEY, date TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL); INSERT INTO diaries_new (id, date, content, created_at, updated_at) SELECT CAST(id AS TEXT), date, content, created_at, updated_at FROM diaries; DROP TABLE diaries; ALTER TABLE diaries_new RENAME TO diaries"
+  },
+  {
+    "version": 3,
+    "description": "Add title column",
+    "sql": "ALTER TABLE diaries ADD COLUMN title TEXT NOT NULL DEFAULT ''"
   }
 ]

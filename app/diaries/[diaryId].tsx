@@ -32,13 +32,14 @@ export default function DiaryDetail() {
   const { diaryId } = useLocalSearchParams<{ diaryId: string }>();
   const [diary, setDiary] = useState<Diary | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [title, setTitle] = useState("");
   const [date, setDate] = useState<Date>(new Date());
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const stateRef = useRef({ date, content, diary, isEditing });
+  const stateRef = useRef({ title, date, content, diary, isEditing });
 
-  stateRef.current = { date, content, diary, isEditing };
+  stateRef.current = { title, date, content, diary, isEditing };
 
   useEffect(() => {
     const showSub = Keyboard.addListener("keyboardWillShow", (e) => {
@@ -58,6 +59,7 @@ export default function DiaryDetail() {
       getDiary(diaryId).then((d) => {
         setDiary(d);
         if (d) {
+          setTitle(d.title);
           setDate(parseDate(d.date));
           setContent(d.content);
         }
@@ -67,18 +69,19 @@ export default function DiaryDetail() {
   }, [diaryId]);
 
   const handleSave = async () => {
-    const { date: currentDate, content: currentContent } = stateRef.current;
+    const { title: currentTitle, date: currentDate, content: currentContent } = stateRef.current;
     const dateStr = formatDate(currentDate);
-    await updateDiary(diaryId!, dateStr, currentContent.trim());
+    await updateDiary(diaryId!, currentTitle.trim(), dateStr, currentContent.trim());
     setIsEditing(false);
     setDiary((prev) =>
-      prev ? { ...prev, date: dateStr, content: currentContent.trim() } : null
+      prev ? { ...prev, title: currentTitle.trim(), date: dateStr, content: currentContent.trim() } : null
     );
   };
 
   const handleCancel = () => {
     const { diary: currentDiary } = stateRef.current;
     if (currentDiary) {
+      setTitle(currentDiary.title);
       setDate(parseDate(currentDiary.date));
       setContent(currentDiary.content);
     }
@@ -102,8 +105,11 @@ export default function DiaryDetail() {
   useLayoutEffect(() => {
     if (loading) return;
 
+    const headerTitle = diary ? diary.date.replace(/-/g, "/") : "";
+
     if (isEditing) {
       navigation.setOptions({
+        title: headerTitle,
         headerLeft: () => (
           <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
             <Text style={styles.headerButtonText}>キャンセル</Text>
@@ -117,6 +123,7 @@ export default function DiaryDetail() {
       });
     } else {
       navigation.setOptions({
+        title: headerTitle,
         headerLeft: undefined,
         headerRight: () => (
           <TouchableOpacity
@@ -128,7 +135,7 @@ export default function DiaryDetail() {
         ),
       });
     }
-  }, [navigation, isEditing, loading]);
+  }, [navigation, isEditing, loading, diary]);
 
   if (loading) {
     return (
@@ -149,6 +156,14 @@ export default function DiaryDetail() {
   if (isEditing) {
     return (
       <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
+        <Text style={styles.label}>タイトル</Text>
+        <TextInput
+          style={styles.titleInput}
+          value={title}
+          onChangeText={setTitle}
+          placeholder="タイトル（任意）"
+        />
+
         <Text style={styles.label}>日付</Text>
         <DateTimePicker
           value={date}
@@ -174,7 +189,7 @@ export default function DiaryDetail() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.date}>{diary.date}</Text>
+      {diary.title ? <Text style={styles.title}>{diary.title}</Text> : null}
       <ScrollView style={styles.contentScroll}>
         <Text style={styles.content}>{diary.content}</Text>
       </ScrollView>
@@ -209,9 +224,17 @@ const styles = StyleSheet.create({
     color: "#007AFF",
     fontWeight: "600",
   },
-  date: {
-    fontSize: 18,
-    color: "#666",
+  title: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+  titleInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
     marginBottom: 16,
   },
   contentScroll: {
