@@ -4,10 +4,11 @@ import {
   View,
   TextInput,
   TouchableOpacity,
+  Keyboard,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useRouter, useNavigation, useLocalSearchParams } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -34,13 +35,27 @@ export default function DiaryDetail() {
   const [date, setDate] = useState<Date>(new Date());
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const stateRef = useRef({ date, content, diary, isEditing });
 
   stateRef.current = { date, content, diary, isEditing };
 
   useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardWillShow", (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener("keyboardWillHide", () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     if (diaryId) {
-      getDiary(Number(diaryId)).then((d) => {
+      getDiary(diaryId).then((d) => {
         setDiary(d);
         if (d) {
           setDate(parseDate(d.date));
@@ -53,13 +68,8 @@ export default function DiaryDetail() {
 
   const handleSave = async () => {
     const { date: currentDate, content: currentContent } = stateRef.current;
-    if (!currentContent.trim()) {
-      Alert.alert("エラー", "内容を入力してください");
-      return;
-    }
-
     const dateStr = formatDate(currentDate);
-    await updateDiary(Number(diaryId), dateStr, currentContent.trim());
+    await updateDiary(diaryId!, dateStr, currentContent.trim());
     setIsEditing(false);
     setDiary((prev) =>
       prev ? { ...prev, date: dateStr, content: currentContent.trim() } : null
@@ -82,7 +92,7 @@ export default function DiaryDetail() {
         text: "削除",
         style: "destructive",
         onPress: async () => {
-          await deleteDiary(Number(diaryId));
+          await deleteDiary(diaryId!);
           router.back();
         },
       },
@@ -138,7 +148,7 @@ export default function DiaryDetail() {
 
   if (isEditing) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
         <Text style={styles.label}>日付</Text>
         <DateTimePicker
           value={date}

@@ -1,5 +1,12 @@
-import { useLayoutEffect, useRef, useState } from "react";
-import { Text, View, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  Keyboard,
+  StyleSheet,
+} from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { createDiary } from "../../lib/diary";
@@ -16,17 +23,26 @@ export default function NewDiary() {
   const navigation = useNavigation();
   const [date, setDate] = useState(new Date());
   const [content, setContent] = useState("");
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const contentRef = useRef({ date, content });
 
   contentRef.current = { date, content };
 
+  useEffect(() => {
+    const showSub = Keyboard.addListener("keyboardWillShow", (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener("keyboardWillHide", () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const handleSave = async () => {
     const { date: currentDate, content: currentContent } = contentRef.current;
-    if (!currentContent.trim()) {
-      Alert.alert("エラー", "内容を入力してください");
-      return;
-    }
-
     await createDiary(formatDate(currentDate), currentContent.trim());
     router.back();
   };
@@ -42,7 +58,7 @@ export default function NewDiary() {
   }, [navigation]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: keyboardHeight }]}>
       <Text style={styles.label}>日付</Text>
       <DateTimePicker
         value={date}
