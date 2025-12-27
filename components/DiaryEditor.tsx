@@ -86,6 +86,8 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   const [userHasEdited, setUserHasEdited] = useState(false);
   // Track initial auto-fill completion
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  // Track if date or location has been changed by user (to trigger weather fetch)
+  const [shouldFetchWeather, setShouldFetchWeather] = useState(false);
 
   // Ref for debounced save
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -119,9 +121,10 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   // Load existing diary or initialize new one
   useEffect(() => {
     if (isNew) {
-      // New diary: get current location
+      // New diary: get current location and fetch weather
       getCurrentLocation().then((loc) => {
         setLocation(loc);
+        setShouldFetchWeather(true); // New diary should fetch weather
         setInitialLoadComplete(true);
       });
     } else {
@@ -172,13 +175,14 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
     }
   }, [diaryId, isNew]);
 
-  // Fetch weather when date or location changes
+  // Fetch weather only when explicitly triggered (new diary or date/location changed by user)
   useEffect(() => {
-    if (!initialLoadComplete) return;
+    if (!shouldFetchWeather) return;
 
     const fetchWeather = async () => {
       if (!location) {
         setWeather(null);
+        setShouldFetchWeather(false);
         return;
       }
       setIsLoadingWeather(true);
@@ -188,10 +192,11 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
         setWeather(result);
       } finally {
         setIsLoadingWeather(false);
+        setShouldFetchWeather(false);
       }
     };
     fetchWeather();
-  }, [date, location, initialLoadComplete]);
+  }, [shouldFetchWeather, date, location]);
 
   // Auto-save function
   const performSave = useCallback(async () => {
@@ -272,11 +277,13 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   const handleDateChange = (newDate: Date) => {
     setDate(newDate);
     setUserHasEdited(true);
+    setShouldFetchWeather(true); // Trigger weather fetch when date changes
   };
 
   const handleLocationChange = (newLocation: Location | null) => {
     setLocation(newLocation);
     setUserHasEdited(true);
+    setShouldFetchWeather(true); // Trigger weather fetch when location changes
   };
 
   const handleDelete = () => {

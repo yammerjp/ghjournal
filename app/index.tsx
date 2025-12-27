@@ -75,6 +75,18 @@ export default function Index() {
     const day = getDay(item.date);
     const weekday = getWeekday(item.date);
 
+    const metaItems: string[] = [];
+    if (item.location_city) {
+      metaItems.push(item.location_city);
+    }
+    if (item.weather_description) {
+      let weatherText = item.weather_description;
+      if (item.weather_temperature_min != null && item.weather_temperature_max != null) {
+        weatherText += ` ${item.weather_temperature_min}〜${item.weather_temperature_max}°`;
+      }
+      metaItems.push(weatherText);
+    }
+
     return (
       <TouchableOpacity
         style={styles.diaryItem}
@@ -93,6 +105,11 @@ export default function Index() {
           <Text style={styles.diaryContent} numberOfLines={2}>
             {item.content}
           </Text>
+          {metaItems.length > 0 && (
+            <Text style={styles.diaryMeta} numberOfLines={1}>
+              {metaItems.join(" · ")}
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -178,6 +195,7 @@ const styles = StyleSheet.create({
   dateColumn: {
     width: 40,
     alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   weekday: {
@@ -204,6 +222,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     lineHeight: 20,
+  },
+  diaryMeta: {
+    fontSize: 12,
+    color: "#999",
+    marginTop: 4,
   },
   emptyText: {
     textAlign: "center",
