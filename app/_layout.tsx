@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
-import { initDatabase } from "../lib/diary";
+import { initDatabase } from "../lib/database";
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);

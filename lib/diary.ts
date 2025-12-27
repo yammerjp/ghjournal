@@ -1,5 +1,5 @@
-import * as SQLite from 'expo-sqlite';
 import * as Crypto from 'expo-crypto';
+import { getDatabase } from './database';
 
 export interface Diary {
   id: string;
@@ -7,66 +7,6 @@ export interface Diary {
   content: string;
   created_at: string;
   updated_at: string;
-}
-
-let db: SQLite.SQLiteDatabase | null = null;
-
-export function setDatabase(database: SQLite.SQLiteDatabase) {
-  db = database;
-}
-
-export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (!db) {
-    db = await SQLite.openDatabaseAsync('diary.db');
-  }
-  return db;
-}
-
-const CURRENT_DB_VERSION = 2;
-
-export async function initDatabase(): Promise<void> {
-  const database = await getDatabase();
-
-  // Check current version
-  const versionResult = await database.getFirstAsync<{ user_version: number }>(
-    'PRAGMA user_version'
-  );
-  const currentVersion = versionResult?.user_version ?? 0;
-
-  if (currentVersion < 1) {
-    // Initial schema (v1) - but we're now at v2, so create with UUID from start
-    await database.execAsync(`
-      CREATE TABLE IF NOT EXISTS diaries (
-        id TEXT PRIMARY KEY,
-        date TEXT NOT NULL,
-        content TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      )
-    `);
-  }
-
-  if (currentVersion === 1) {
-    // Migration from v1 (INTEGER id) to v2 (TEXT/UUID id)
-    await database.execAsync(`
-      CREATE TABLE IF NOT EXISTS diaries_new (
-        id TEXT PRIMARY KEY,
-        date TEXT NOT NULL,
-        content TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      INSERT INTO diaries_new (id, date, content, created_at, updated_at)
-        SELECT CAST(id AS TEXT), date, content, created_at, updated_at FROM diaries;
-      DROP TABLE diaries;
-      ALTER TABLE diaries_new RENAME TO diaries;
-    `);
-  }
-
-  // Update version
-  if (currentVersion < CURRENT_DB_VERSION) {
-    await database.execAsync(`PRAGMA user_version = ${CURRENT_DB_VERSION}`);
-  }
 }
 
 export async function createDiary(date: string, content: string): Promise<Diary> {

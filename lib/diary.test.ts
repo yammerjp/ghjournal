@@ -4,14 +4,22 @@ import {
   getDiary,
   updateDiary,
   deleteDiary,
-  initDatabase,
-  setDatabase,
 } from './diary';
+import { initDatabase, setDatabase } from './database';
 
 // Mock expo-crypto
 jest.mock('expo-crypto', () => ({
   randomUUID: jest.fn(() => `uuid-${Math.random().toString(36).substr(2, 9)}`),
 }));
+
+// Mock migrations.json
+jest.mock('./migrations.json', () => [
+  {
+    version: 1,
+    description: 'Create diaries table',
+    sql: 'CREATE TABLE IF NOT EXISTS diaries (id TEXT PRIMARY KEY)',
+  },
+]);
 
 // Mock database for testing
 const createMockDb = () => {
@@ -89,7 +97,6 @@ describe('Diary CRUD operations', () => {
 
   describe('initDatabase', () => {
     it('should create diaries table', async () => {
-      await initDatabase();
       expect(mockDb.execAsync).toHaveBeenCalledWith(
         expect.stringContaining('CREATE TABLE IF NOT EXISTS diaries')
       );

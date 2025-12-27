@@ -1,0 +1,12 @@
+[
+  {
+    "version": 1,
+    "description": "Create initial diaries table with INTEGER id",
+    "sql": "CREATE TABLE IF NOT EXISTS diaries (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"
+  },
+  {
+    "version": 2,
+    "description": "Migrate id from INTEGER to TEXT (UUID)",
+    "sql": "CREATE TABLE IF NOT EXISTS diaries_new (id TEXT PRIMARY KEY, date TEXT NOT NULL, content TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL); INSERT INTO diaries_new (id, date, content, created_at, updated_at) SELECT CAST(id AS TEXT), date, content, created_at, updated_at FROM diaries; DROP TABLE diaries; ALTER TABLE diaries_new RENAME TO diaries"
+  }
+]
