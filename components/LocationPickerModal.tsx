@@ -9,9 +9,8 @@ import {
   Dimensions,
 } from "react-native";
 import MapView, { Marker, MapPressEvent, Region } from "react-native-maps";
-import * as ExpoLocation from "expo-location";
 import { Location } from "../lib/diary";
-import { getCurrentLocation } from "../lib/location";
+import { getCurrentLocation, reverseGeocode } from "../lib/location";
 
 interface LocationPickerModalProps {
   visible: boolean;
@@ -70,32 +69,6 @@ export default function LocationPickerModal({
       }
     }
   }, [visible, initialLocation]);
-
-  const reverseGeocode = async (latitude: number, longitude: number): Promise<{ name?: string; shortName?: string }> => {
-    try {
-      const addresses = await ExpoLocation.reverseGeocodeAsync({
-        latitude,
-        longitude,
-      });
-      if (addresses.length > 0) {
-        const addr = addresses[0];
-        const parts = [
-          addr.region,
-          addr.city,
-          addr.district,
-          addr.streetNumber,
-          addr.name,
-        ].filter(Boolean);
-        return {
-          name: parts.join(" "),
-          shortName: addr.city || undefined,
-        };
-      }
-    } catch (error) {
-      console.error("Failed to reverse geocode:", error);
-    }
-    return {};
-  };
 
   const handleMapPress = async (event: MapPressEvent) => {
     const { latitude, longitude } = event.nativeEvent.coordinate;

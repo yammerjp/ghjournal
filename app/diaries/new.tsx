@@ -12,6 +12,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { createDiary, Location } from "../../lib/diary";
 import { getCurrentLocation } from "../../lib/location";
 import { getWeather } from "../../lib/weather";
+import { isWeatherEnabled } from "../../lib/secrets";
 import LocationPickerModal from "../../components/LocationPickerModal";
 import RefreshWeatherButton from "../../components/RefreshWeatherButton";
 
@@ -31,6 +32,7 @@ export default function NewDiary() {
   const [location, setLocation] = useState<Location | null>(null);
   const [weather, setWeather] = useState<string | null>(null);
   const [isLoadingWeather, setIsLoadingWeather] = useState(false);
+  const [weatherEnabled, setWeatherEnabled] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const contentRef = useRef({ title, date, content, location, weather });
@@ -41,6 +43,7 @@ export default function NewDiary() {
     getCurrentLocation().then((loc) => {
       setLocation(loc);
     });
+    isWeatherEnabled().then(setWeatherEnabled);
   }, []);
 
   // Fetch weather when date or location changes
@@ -148,20 +151,22 @@ export default function NewDiary() {
             </Text>
           )}
         </View>
-        <RefreshWeatherButton
-          onRefresh={async () => {
-            if (!location) return;
-            setIsLoadingWeather(true);
-            try {
-              const dateStr = formatDate(date);
-              const result = await getWeather(location.latitude, location.longitude, dateStr);
-              setWeather(result);
-            } finally {
-              setIsLoadingWeather(false);
-            }
-          }}
-          disabled={!location || isLoadingWeather}
-        />
+        {weatherEnabled && (
+          <RefreshWeatherButton
+            onRefresh={async () => {
+              if (!location) return;
+              setIsLoadingWeather(true);
+              try {
+                const dateStr = formatDate(date);
+                const result = await getWeather(location.latitude, location.longitude, dateStr);
+                setWeather(result);
+              } finally {
+                setIsLoadingWeather(false);
+              }
+            }}
+            disabled={!location || isLoadingWeather}
+          />
+        )}
       </View>
 
       <Text style={styles.label}>内容</Text>

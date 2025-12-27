@@ -14,6 +14,7 @@ import { useRouter, useNavigation, useLocalSearchParams } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Diary, Location, getDiary, updateDiary, deleteDiary } from "../../lib/diary";
 import { getWeather } from "../../lib/weather";
+import { isWeatherEnabled } from "../../lib/secrets";
 import LocationPickerModal from "../../components/LocationPickerModal";
 import RefreshWeatherButton from "../../components/RefreshWeatherButton";
 
@@ -43,6 +44,7 @@ export default function DiaryDetail() {
   const [location, setLocation] = useState<Location | null>(null);
   const [weather, setWeather] = useState<string | null>(null);
   const [isLoadingWeather, setIsLoadingWeather] = useState(false);
+  const [weatherEnabled, setWeatherEnabled] = useState(false);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const stateRef = useRef({ title, date, content, diary, isEditing, location, weather });
 
@@ -75,11 +77,13 @@ export default function DiaryDetail() {
               latitude: d.latitude,
               longitude: d.longitude,
               name: d.location_name ?? undefined,
+              shortName: d.location_short_name ?? undefined,
             });
           }
         }
         setLoading(false);
       });
+      isWeatherEnabled().then(setWeatherEnabled);
     }
   }, [diaryId]);
 
@@ -125,6 +129,7 @@ export default function DiaryDetail() {
         latitude: currentLocation?.latitude ?? null,
         longitude: currentLocation?.longitude ?? null,
         location_name: currentLocation?.name ?? null,
+        location_short_name: currentLocation?.shortName ?? null,
         weather: currentWeather,
       } : null
     );
@@ -142,6 +147,7 @@ export default function DiaryDetail() {
           latitude: currentDiary.latitude,
           longitude: currentDiary.longitude,
           name: currentDiary.location_name ?? undefined,
+          shortName: currentDiary.location_short_name ?? undefined,
         });
       } else {
         setLocation(null);
@@ -277,20 +283,22 @@ export default function DiaryDetail() {
               </Text>
             )}
           </View>
-          <RefreshWeatherButton
-            onRefresh={async () => {
-              if (!location) return;
-              setIsLoadingWeather(true);
-              try {
-                const dateStr = formatDate(date);
-                const result = await getWeather(location.latitude, location.longitude, dateStr);
-                setWeather(result);
-              } finally {
-                setIsLoadingWeather(false);
-              }
-            }}
-            disabled={!location || isLoadingWeather}
-          />
+          {weatherEnabled && (
+            <RefreshWeatherButton
+              onRefresh={async () => {
+                if (!location) return;
+                setIsLoadingWeather(true);
+                try {
+                  const dateStr = formatDate(date);
+                  const result = await getWeather(location.latitude, location.longitude, dateStr);
+                  setWeather(result);
+                } finally {
+                  setIsLoadingWeather(false);
+                }
+              }}
+              disabled={!location || isLoadingWeather}
+            />
+          )}
         </View>
 
         <Text style={styles.label}>内容</Text>
