@@ -10,8 +10,19 @@ import {
 } from "react-native";
 import Slider from "@react-native-community/slider";
 import * as Clipboard from "expo-clipboard";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { DiaryVersion, getDiaryVersions, restoreVersion } from "../lib/diary";
-import { formatDateTime } from "../lib/format";
+import { formatDateTime, getWeatherIcon, formatTemperature } from "../lib/format";
+
+const formatDateDisplay = (dateStr: string): string => {
+  const [year, month, day] = dateStr.split("-");
+  return `${year}/${parseInt(month, 10)}/${parseInt(day, 10)}`;
+};
+
+const formatDateShort = (dateStr: string): string => {
+  const [, month, day] = dateStr.split("-");
+  return `${parseInt(month, 10)}/${parseInt(day, 10)}`;
+};
 
 interface VersionHistoryModalProps {
   visible: boolean;
@@ -29,6 +40,7 @@ export default function VersionHistoryModal({
   const [versions, setVersions] = useState<DiaryVersion[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [isMetaExpanded, setIsMetaExpanded] = useState(false);
 
   useEffect(() => {
     if (visible && diaryId) {
@@ -45,6 +57,22 @@ export default function VersionHistoryModal({
   const actualVersionIndex = versions.length - 1 - selectedIndex;
   const selectedVersion = versions[actualVersionIndex] || null;
   const isLatest = actualVersionIndex === 0;
+
+  // Compute weather and temperature for display
+  const weather = selectedVersion &&
+    selectedVersion.weather_wmo_code !== null &&
+    selectedVersion.weather_description !== null &&
+    selectedVersion.weather_temperature_min !== null &&
+    selectedVersion.weather_temperature_max !== null
+      ? {
+          wmoCode: selectedVersion.weather_wmo_code,
+          description: selectedVersion.weather_description,
+          temperatureMin: selectedVersion.weather_temperature_min,
+          temperatureMax: selectedVersion.weather_temperature_max,
+        }
+      : null;
+  const weatherIcon = getWeatherIcon(weather?.wmoCode ?? null);
+  const temperature = formatTemperature(weather);
 
   const handleRestore = useCallback(async () => {
     if (!diaryId || !selectedVersion || isLatest) return;
@@ -134,16 +162,81 @@ export default function VersionHistoryModal({
               )}
             </View>
 
+            {/* Meta Row - Collapsed */}
+            {selectedVersion && (
+              <TouchableOpacity
+                style={styles.metaRow}
+                onPress={() => setIsMetaExpanded(!isMetaExpanded)}
+              >
+                <View style={styles.metaRowLeft}>
+                  <Text style={styles.metaDate}>{formatDateShort(selectedVersion.date)}</Text>
+                  {selectedVersion.location_city && (
+                    <View style={styles.metaLocation}>
+                      <Ionicons name="location-outline" size={14} color="#999" />
+                      <Text style={styles.metaLocationText}>{selectedVersion.location_city}</Text>
+                    </View>
+                  )}
+                  {weather && (
+                    <>
+                      <Ionicons name={weatherIcon.name} size={18} color={weatherIcon.color} />
+                      {temperature && <Text style={styles.metaTemperature}>{temperature}</Text>}
+                    </>
+                  )}
+                </View>
+                <Ionicons
+                  name={isMetaExpanded ? "chevron-up" : "chevron-down"}
+                  size={18}
+                  color="#999"
+                />
+              </TouchableOpacity>
+            )}
+
+            {/* Meta Row - Expanded */}
+            {selectedVersion && isMetaExpanded && (
+              <View style={styles.metaExpanded}>
+                {/* Date */}
+                <View style={styles.metaField}>
+                  <Text style={styles.metaLabel}>日付</Text>
+                  <Text style={styles.metaValue}>{formatDateDisplay(selectedVersion.date)}</Text>
+                </View>
+
+                {/* Location */}
+                <View style={styles.metaField}>
+                  <Text style={styles.metaLabel}>場所</Text>
+                  <Text style={selectedVersion.location_description ? styles.metaValue : styles.metaValueMuted}>
+                    {selectedVersion.location_description || selectedVersion.location_city || "-"}
+                  </Text>
+                </View>
+
+                {/* Weather */}
+                <View style={styles.metaField}>
+                  <Text style={styles.metaLabel}>天気</Text>
+                  <Text style={weather ? styles.metaValue : styles.metaValueMuted}>
+                    {weather ? `${weather.description}  ${temperature}` : "-"}
+                  </Text>
+                </View>
+
+                {/* Title */}
+                <View style={styles.metaField}>
+                  <Text style={styles.metaLabel}>題名</Text>
+                  <Text style={selectedVersion.title ? styles.metaValue : styles.metaValueMuted}>
+                    {selectedVersion.title || "(自動生成)"}
+                  </Text>
+                </View>
+
+                {/* Created at */}
+                <View style={styles.metaField}>
+                  <Text style={styles.metaLabel}>保存</Text>
+                  <Text style={styles.metaValue}>{formatDateTime(selectedVersion.created_at)}</Text>
+                </View>
+              </View>
+            )}
+
             <ScrollView style={styles.contentContainer}>
               {selectedVersion && (
-                <>
-                  {selectedVersion.title ? (
-                    <Text style={styles.versionTitle}>{selectedVersion.title}</Text>
-                  ) : null}
-                  <Text style={styles.versionContent}>
-                    {selectedVersion.content || "(本文なし)"}
-                  </Text>
-                </>
+                <Text style={styles.versionContent}>
+                  {selectedVersion.content || "(本文なし)"}
+                </Text>
               )}
             </ScrollView>
 
@@ -225,6 +318,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#007AFF",
     marginTop: 4,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#e0e0e0",
+  },
+  metaRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  metaDate: {
+    fontSize: 14,
+    color: "#666",
+  },
+  metaTemperature: {
+    fontSize: 14,
+    color: "#666",
+  },
+  metaLocation: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  metaLocationText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  metaExpanded: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#e0e0e0",
+    gap: 12,
+  },
+  metaField: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  metaLabel: {
+    fontSize: 14,
+    color: "#999",
+    width: 40,
+  },
+  metaValue: {
+    flex: 1,
+    fontSize: 14,
+    color: "#333",
+  },
+  metaValueMuted: {
+    flex: 1,
+    fontSize: 14,
+    color: "#999",
   },
   contentContainer: {
     flex: 1,
