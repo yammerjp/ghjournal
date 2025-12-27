@@ -8,6 +8,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  ActionSheetIOS,
+  Platform,
 } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -296,6 +298,29 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
     ]);
   };
 
+  const showMenu = () => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["キャンセル", "削除"],
+          destructiveButtonIndex: 1,
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            handleDelete();
+          }
+        }
+      );
+    } else {
+      // Android: use Alert as a simple menu
+      Alert.alert("メニュー", undefined, [
+        { text: "キャンセル", style: "cancel" },
+        { text: "削除", style: "destructive", onPress: handleDelete },
+      ]);
+    }
+  };
+
   // Header setup
   useLayoutEffect(() => {
     const headerTitle = isNew ? "新規作成" : formatDate(date).replace(/-/g, "/");
@@ -308,8 +333,8 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
         </TouchableOpacity>
       ),
       headerRight: () => (
-        <TouchableOpacity onPress={handleDelete} style={styles.headerButton}>
-          <Ionicons name="trash-outline" size={22} color="#FF3B30" />
+        <TouchableOpacity onPress={showMenu} style={styles.headerButton}>
+          <Ionicons name="ellipsis-horizontal" size={22} color="#007AFF" />
         </TouchableOpacity>
       ),
     });
