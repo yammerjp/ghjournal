@@ -1,4 +1,4 @@
-import { getDatabase } from './database';
+import { getLocalDatabase } from './database';
 
 const MAX_LOGS = 100;
 
@@ -16,7 +16,7 @@ export async function addLog(
   details?: string
 ): Promise<void> {
   try {
-    const database = await getDatabase();
+    const database = await getLocalDatabase();
     const timestamp = new Date().toISOString();
     await database.runAsync(
       'INSERT INTO debug_logs (timestamp, level, message, details) VALUES (?, ?, ?, ?)',
@@ -36,7 +36,7 @@ export async function addLog(
 
 export async function getDebugLogs(): Promise<DebugLogEntry[]> {
   try {
-    const database = await getDatabase();
+    const database = await getLocalDatabase();
     const logs = await database.getAllAsync<DebugLogEntry>(
       'SELECT * FROM debug_logs ORDER BY id DESC LIMIT ?',
       [MAX_LOGS]
@@ -50,7 +50,7 @@ export async function getDebugLogs(): Promise<DebugLogEntry[]> {
 
 export async function clearDebugLogs(): Promise<void> {
   try {
-    const database = await getDatabase();
+    const database = await getLocalDatabase();
     await database.runAsync('DELETE FROM debug_logs');
   } catch (error) {
     console.error('Failed to clear debug logs:', error);

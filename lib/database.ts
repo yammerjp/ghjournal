@@ -96,11 +96,6 @@ export async function initStreamDatabase(): Promise<void> {
   await runMigrations(database, streamMigrations as Migration[]);
 }
 
-// Legacy compatibility - will be removed after migration
-export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  return getLocalDatabase();
-}
-
 export async function initDatabase(): Promise<void> {
   await initLocalDatabase();
   await initStreamDatabase();
