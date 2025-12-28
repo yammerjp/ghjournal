@@ -35,8 +35,7 @@ export async function getLocalDatabase(): Promise<SQLite.SQLiteDatabase> {
 
 export async function getStreamDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (!streamDb) {
-    const id = await getStreamId();
-    streamDb = await SQLite.openDatabaseAsync(`${id}.sqlite3`);
+    streamDb = await SQLite.openDatabaseAsync('my_stream.sqlite3');
   }
   return streamDb;
 }
