@@ -94,6 +94,14 @@ const createMockLocalDb = () => {
         const version = versions.find((v) => v.id === head.version_id && !v.archived_at);
         return version || null;
       }
+      // For importStreamToLocal head lookup
+      if (sql.includes('FROM diary_versions') && sql.includes('JOIN diary_heads')) {
+        const diaryId = params?.[0];
+        const head = heads.find((h) => h.diary_id === diaryId);
+        if (!head) return null;
+        const version = versions.find((v) => v.id === head.version_id);
+        return version ? { created_at: version.created_at } : null;
+      }
       return null;
     }),
     getAllAsync: jest.fn(async (sql: string) => {
@@ -228,9 +236,14 @@ const createMockStreamDb = () => {
       }
       return null;
     }),
-    getAllAsync: jest.fn(async () => []),
+    getAllAsync: jest.fn(async (sql: string) => {
+      if (sql.includes('FROM diary_versions')) {
+        return versions;
+      }
+      return [];
+    }),
     runAsync: jest.fn(async (sql: string, params: any[]) => {
-      if (sql.includes('INSERT INTO diary_versions')) {
+      if (sql.includes('INSERT') && sql.includes('diary_versions')) {
         const existingVersion = versions.find((v) => v.id === params[0]);
         if (!existingVersion) {
           versions.push({

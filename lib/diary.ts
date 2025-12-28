@@ -1,5 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import { getLocalDatabase, getStreamDatabase } from './database';
+import { getLocalDatabase, getStreamDatabase, importStreamToLocal } from './database';
 
 export interface Location {
   latitude: number;
@@ -203,34 +203,8 @@ export async function commitSealedDraft(diaryId: string): Promise<boolean> {
   const versionId = draft.pending_version_id;
   const now = new Date().toISOString();
 
-  // Step 1: Write version to stream database
+  // Step 1: Write version to stream database (INSERT OR IGNORE for idempotency)
   await streamDb.runAsync(
-    `INSERT INTO diary_versions
-     (id, diary_id, title, date, content, location_latitude, location_longitude,
-      location_description, location_city, weather_wmo_code, weather_description,
-      weather_temperature_min, weather_temperature_max, archived_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      versionId,
-      diaryId,
-      draft.title,
-      draft.date,
-      draft.content,
-      draft.location_latitude,
-      draft.location_longitude,
-      draft.location_description,
-      draft.location_city,
-      draft.weather_wmo_code,
-      draft.weather_description,
-      draft.weather_temperature_min,
-      draft.weather_temperature_max,
-      null, // archived_at
-      now,
-    ]
-  );
-
-  // Step 2: INSERT IGNORE version to local database
-  await localDb.runAsync(
     `INSERT OR IGNORE INTO diary_versions
      (id, diary_id, title, date, content, location_latitude, location_longitude,
       location_description, location_city, weather_wmo_code, weather_description,
@@ -255,13 +229,10 @@ export async function commitSealedDraft(diaryId: string): Promise<boolean> {
     ]
   );
 
-  // Step 3: Update head
-  await localDb.runAsync(
-    'INSERT OR REPLACE INTO diary_heads (diary_id, version_id) VALUES (?, ?)',
-    [diaryId, versionId]
-  );
+  // Step 2: Import stream database to local (same logic as importing from other devices)
+  await importStreamToLocal(streamDb);
 
-  // Step 4: Delete draft
+  // Step 3: Delete draft
   await localDb.runAsync('DELETE FROM diary_drafts WHERE diary_id = ?', [diaryId]);
   draftCreatedAtCache.delete(diaryId);
 
