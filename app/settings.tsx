@@ -9,7 +9,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { getDatabaseVersion, resetDatabase } from "../lib/database";
+import { getLocalDatabaseVersion, resetDatabase } from "../lib/database";
 import { isWeatherEnabled, setWeatherEnabled } from "../lib/secrets";
 
 export default function Settings() {
@@ -18,7 +18,7 @@ export default function Settings() {
   const [weatherEnabled, setWeatherEnabledState] = useState(false);
 
   useEffect(() => {
-    getDatabaseVersion().then(setDbVersion);
+    getLocalDatabaseVersion().then(setDbVersion);
     loadWeatherEnabled();
   }, []);
 
@@ -43,7 +43,7 @@ export default function Settings() {
           style: "destructive",
           onPress: async () => {
             await resetDatabase();
-            const newVersion = await getDatabaseVersion();
+            const newVersion = await getLocalDatabaseVersion();
             setDbVersion(newVersion);
             Alert.alert("完了", "データベースをリセットしました");
           },

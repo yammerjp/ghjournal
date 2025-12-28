@@ -101,7 +101,7 @@ export async function initDatabase(): Promise<void> {
   await initStreamDatabase();
 }
 
-export async function getDatabaseVersion(): Promise<number> {
+export async function getLocalDatabaseVersion(): Promise<number> {
   const database = await getLocalDatabase();
   return getCurrentVersion(database);
 }
