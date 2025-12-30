@@ -118,7 +118,7 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>日記</Text>
+        <Text style={styles.headerTitle}>ghjournal</Text>
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => router.push("/settings")}
