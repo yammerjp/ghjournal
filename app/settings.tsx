@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
-  Linking,
   ActivityIndicator,
-  TextInput,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import * as WebBrowser from "expo-web-browser";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { getDatabaseVersion, resetDatabase } from "../lib/database";
 import { isWeatherEnabled, setWeatherEnabled } from "../lib/secrets";
@@ -24,16 +24,21 @@ import {
   setRepository,
   clearRepository,
   isAccessTokenSuccess,
+  fetchAccessibleRepositories,
   GitHubConfig,
+  GitHubRepository,
 } from "../lib/github-auth";
 import { syncEntries, SyncResult } from "../lib/github-sync";
 
 const GITHUB_CLIENT_ID = process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID ?? "";
+const GITHUB_APP_NAME = process.env.EXPO_PUBLIC_GITHUB_APP_NAME ?? "";
+const GITHUB_APP_INSTALL_URL = `https://github.com/apps/${GITHUB_APP_NAME}/installations/new`;
+const GITHUB_NEW_REPO_URL = "https://github.com/new?name=journal&visibility=private&owner=@me&description=ghjournal%E3%81%AE%E6%97%A5%E8%A8%98%E3%83%87%E3%83%BC%E3%82%BF";
 
 type AuthState =
   | { type: "idle" }
   | { type: "requesting" }
-  | { type: "waiting_for_user"; userCode: string; verificationUri: string; verificationUriComplete?: string; deviceCode: string; interval: number; expiresAt: number }
+  | { type: "waiting_for_user"; userCode: string; verificationUri: string; deviceCode: string; interval: number; expiresAt: number }
   | { type: "polling" }
   | { type: "success" }
   | { type: "error"; message: string };
@@ -44,10 +49,12 @@ export default function Settings() {
   const [weatherEnabled, setWeatherEnabledState] = useState(false);
   const [githubConfig, setGithubConfig] = useState<GitHubConfig | null>(null);
   const [authState, setAuthState] = useState<AuthState>({ type: "idle" });
-  const [repositoryInput, setRepositoryInput] = useState("");
-  const [showRepoInput, setShowRepoInput] = useState(false);
+  const [showRepoSelect, setShowRepoSelect] = useState(false);
+  const [availableRepos, setAvailableRepos] = useState<GitHubRepository[]>([]);
+  const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null);
+  const [isCodeCopied, setIsCodeCopied] = useState(false);
 
   const loadData = useCallback(async () => {
     const [version, enabled, config] = await Promise.all([
@@ -90,6 +97,7 @@ export default function Settings() {
 
   const startGitHubAuth = async () => {
     setAuthState({ type: "requesting" });
+    setIsCodeCopied(false);
 
     try {
       const response = await requestDeviceCode(GITHUB_CLIENT_ID);
@@ -98,7 +106,6 @@ export default function Settings() {
         type: "waiting_for_user",
         userCode: response.user_code,
         verificationUri: response.verification_uri,
-        verificationUriComplete: response.verification_uri_complete,
         deviceCode: response.device_code,
         interval: response.interval,
         expiresAt: Date.now() + response.expires_in * 1000,
@@ -111,19 +118,17 @@ export default function Settings() {
     }
   };
 
-  const openVerificationUrl = async () => {
-    if (authState.type === "waiting_for_user") {
-      // verificationUriComplete があればそれを使う（user_code入力不要）
-      const url = authState.verificationUriComplete || authState.verificationUri;
-      await Linking.openURL(url);
-      startPolling();
-    }
-  };
-
   const copyUserCode = async () => {
     if (authState.type === "waiting_for_user") {
       await Clipboard.setStringAsync(authState.userCode);
-      Alert.alert("コピーしました", `認証コード: ${authState.userCode}`);
+      setIsCodeCopied(true);
+    }
+  };
+
+  const openVerificationUrl = async () => {
+    if (authState.type === "waiting_for_user") {
+      startPolling();
+      await WebBrowser.openAuthSessionAsync(authState.verificationUri, "ghjournal://");
     }
   };
 
@@ -143,9 +148,25 @@ export default function Settings() {
         const response = await pollForAccessToken(GITHUB_CLIENT_ID, deviceCode);
 
         if (isAccessTokenSuccess(response)) {
-          await setAccessToken(response.access_token);
+          await setAccessToken(response.access_token, response.expires_in, response.refresh_token);
           setAuthState({ type: "success" });
-          setShowRepoInput(true);
+          // 認証成功したらブラウザを閉じる（失敗しても問題なし）
+          try {
+            WebBrowser.dismissAuthSession();
+          } catch {
+            // ユーザーが既にブラウザを閉じていた場合は無視
+          }
+          // リポジトリ一覧を取得
+          setIsLoadingRepos(true);
+          setShowRepoSelect(true);
+          try {
+            const repos = await fetchAccessibleRepositories();
+            setAvailableRepos(repos);
+          } catch (error) {
+            Alert.alert("エラー", "リポジトリ一覧の取得に失敗しました");
+          } finally {
+            setIsLoadingRepos(false);
+          }
           return;
         }
 
@@ -182,23 +203,33 @@ export default function Settings() {
     await poll();
   };
 
-  const handleSaveRepository = async () => {
-    if (!repositoryInput.trim()) {
-      Alert.alert("エラー", "リポジトリを入力してください（例: owner/repo）");
-      return;
-    }
-
-    const repoPattern = /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
-    if (!repoPattern.test(repositoryInput.trim())) {
-      Alert.alert("エラー", "リポジトリの形式が正しくありません（例: owner/repo）");
-      return;
-    }
-
-    await setRepository(repositoryInput.trim());
-    setShowRepoInput(false);
-    setRepositoryInput("");
+  const handleSelectRepository = async (repo: GitHubRepository) => {
+    await setRepository(repo.full_name);
+    setShowRepoSelect(false);
+    setAvailableRepos([]);
     setAuthState({ type: "idle" });
     await loadData();
+  };
+
+  const reloadRepositories = async () => {
+    setIsLoadingRepos(true);
+    try {
+      const repos = await fetchAccessibleRepositories();
+      setAvailableRepos(repos);
+    } catch (error) {
+      Alert.alert("エラー", "リポジトリ一覧の取得に失敗しました");
+    } finally {
+      setIsLoadingRepos(false);
+    }
+  };
+
+  const openInstallPage = async () => {
+    // 外部ブラウザで開く（ログイン状態を維持するため）
+    await Linking.openURL(GITHUB_APP_INSTALL_URL);
+  };
+
+  const openNewRepoPage = async () => {
+    await Linking.openURL(GITHUB_NEW_REPO_URL);
   };
 
   const handleDisconnect = () => {
@@ -221,10 +252,12 @@ export default function Settings() {
     );
   };
 
-  const cancelAuth = () => {
+  const cancelAuth = async () => {
     setAuthState({ type: "idle" });
-    setShowRepoInput(false);
-    setRepositoryInput("");
+    setShowRepoSelect(false);
+    setAvailableRepos([]);
+    // 認証成功後にキャンセルした場合はトークンもクリア
+    await clearAccessToken();
   };
 
   const handleSync = async () => {
@@ -289,17 +322,17 @@ export default function Settings() {
             </View>
           )}
           <TouchableOpacity
-            style={[styles.linkButton, isSyncing && styles.disabledButton]}
+            style={[styles.actionRow, isSyncing && styles.disabledButton]}
             onPress={handleSync}
             disabled={isSyncing}
           >
             {isSyncing ? (
               <View style={styles.syncingRow}>
-                <ActivityIndicator size="small" color="#fff" />
-                <Text style={[styles.linkButtonText, { marginLeft: 8 }]}>同期中...</Text>
+                <ActivityIndicator size="small" color="#007AFF" />
+                <Text style={[styles.actionText, { marginLeft: 8 }]}>同期中...</Text>
               </View>
             ) : (
-              <Text style={styles.linkButtonText}>今すぐ同期</Text>
+              <Text style={styles.actionText}>今すぐ同期</Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.dangerRow} onPress={handleDisconnect}>
@@ -309,35 +342,56 @@ export default function Settings() {
       );
     }
 
-    // Repository input after successful auth
-    if (showRepoInput) {
+    // Repository selection after successful auth
+    if (showRepoSelect) {
       return (
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>GitHub同期</Text>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>認証成功</Text>
-          </View>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.textInput}
-              placeholder="owner/repo"
-              value={repositoryInput}
-              onChangeText={setRepositoryInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.cancelButton} onPress={cancelAuth}>
-              <Text style={styles.cancelButtonText}>キャンセル</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.primaryButton} onPress={handleSaveRepository}>
-              <Text style={styles.primaryButtonText}>保存</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.note}>
-            同期に使用するプライベートリポジトリを入力してください
-          </Text>
+          {isLoadingRepos ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" />
+              <Text style={[styles.rowLabel, { marginLeft: 12 }]}>読み込み中...</Text>
+            </View>
+          ) : availableRepos.length === 0 ? (
+            <>
+              <Text style={styles.note}>
+                同期用のリポジトリが必要です。まだない場合は作成してから、アクセスを許可してください。
+              </Text>
+              <TouchableOpacity style={styles.actionRow} onPress={openNewRepoPage}>
+                <Text style={styles.actionText}>新しいリポジトリを作成</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionRow} onPress={openInstallPage}>
+                <Text style={styles.actionText}>リポジトリへのアクセスを許可</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionRow} onPress={reloadRepositories}>
+                <Text style={styles.actionText}>リポジトリ一覧を更新</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>リポジトリを選択</Text>
+              </View>
+              {availableRepos.map((repo) => (
+                <TouchableOpacity
+                  key={repo.id}
+                  style={styles.repoRow}
+                  onPress={() => handleSelectRepository(repo)}
+                >
+                  <View>
+                    <Text style={styles.repoName}>{repo.full_name}</Text>
+                    <Text style={styles.repoMeta}>
+                      {repo.private ? "プライベート" : "パブリック"}
+                    </Text>
+                  </View>
+                  <Text style={styles.chevron}>›</Text>
+                </TouchableOpacity>
+              ))}
+            </>
+          )}
+          <TouchableOpacity style={styles.secondaryRow} onPress={cancelAuth}>
+            <Text style={styles.secondaryText}>キャンセル</Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -353,8 +407,8 @@ export default function Settings() {
               {authState.type === "requesting" ? "準備中..." : "認証を待っています..."}
             </Text>
           </View>
-          <TouchableOpacity style={styles.dangerRow} onPress={cancelAuth}>
-            <Text style={styles.dangerText}>キャンセル</Text>
+          <TouchableOpacity style={styles.secondaryRow} onPress={cancelAuth}>
+            <Text style={styles.secondaryText}>キャンセル</Text>
           </TouchableOpacity>
         </View>
       );
@@ -365,19 +419,32 @@ export default function Settings() {
         <View style={styles.section}>
           <Text style={styles.sectionHeader}>GitHub同期</Text>
           <TouchableOpacity style={styles.codeBox} onPress={copyUserCode}>
-            <Text style={styles.codeLabel}>認証コード（タップでコピー）</Text>
+            <Text style={styles.codeLabel}>
+              {isCodeCopied ? "✓ コピーしました" : "認証コード（タップでコピー）"}
+            </Text>
             <Text style={styles.codeValue}>{authState.userCode}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.linkButton} onPress={openVerificationUrl}>
-            <Text style={styles.linkButtonText}>GitHubで認証</Text>
-          </TouchableOpacity>
-          <Text style={styles.note}>
-            {authState.verificationUriComplete
-              ? "上のボタンをタップしてGitHubを開いてください"
-              : "上のボタンをタップしてGitHubを開き、認証コードを入力してください"}
-          </Text>
-          <TouchableOpacity style={styles.dangerRow} onPress={cancelAuth}>
-            <Text style={styles.dangerText}>キャンセル</Text>
+          {isCodeCopied ? (
+            <>
+              <TouchableOpacity style={styles.actionRow} onPress={openVerificationUrl}>
+                <Text style={styles.actionText}>GitHubに接続</Text>
+              </TouchableOpacity>
+              <Text style={styles.note}>
+                GitHubで認証コードを貼り付けてください。完了後、左上の「Done」をタップしてアプリに戻ってください。
+              </Text>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={styles.actionRow} onPress={copyUserCode}>
+                <Text style={styles.actionText}>コードをコピー</Text>
+              </TouchableOpacity>
+              <Text style={styles.note}>
+                まず認証コードをコピーしてください
+              </Text>
+            </>
+          )}
+          <TouchableOpacity style={styles.secondaryRow} onPress={cancelAuth}>
+            <Text style={styles.secondaryText}>キャンセル</Text>
           </TouchableOpacity>
         </View>
       );
@@ -392,8 +459,8 @@ export default function Settings() {
               エラー: {authState.message}
             </Text>
           </View>
-          <TouchableOpacity style={styles.linkButton} onPress={startGitHubAuth}>
-            <Text style={styles.linkButtonText}>再試行</Text>
+          <TouchableOpacity style={styles.actionRow} onPress={startGitHubAuth}>
+            <Text style={styles.actionText}>再試行</Text>
           </TouchableOpacity>
         </View>
       );
@@ -403,8 +470,8 @@ export default function Settings() {
     return (
       <View style={styles.section}>
         <Text style={styles.sectionHeader}>GitHub同期</Text>
-        <TouchableOpacity style={styles.linkButton} onPress={startGitHubAuth}>
-          <Text style={styles.linkButtonText}>GitHubに接続</Text>
+        <TouchableOpacity style={styles.actionRow} onPress={startGitHubAuth}>
+          <Text style={styles.actionText}>GitHubに接続</Text>
         </TouchableOpacity>
         <Text style={styles.note}>
           GitHubプライベートリポジトリを使って複数デバイス間で日記を同期します
@@ -472,7 +539,6 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 13,
     color: "#666",
-    textTransform: "uppercase",
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
@@ -528,17 +594,30 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: "#FF3B30",
   },
-  linkButton: {
-    backgroundColor: "#007AFF",
-    marginHorizontal: 16,
+  actionRow: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: "#c6c6c8",
     alignItems: "center",
   },
-  linkButtonText: {
+  actionText: {
     fontSize: 17,
-    color: "#fff",
-    fontWeight: "600",
+    color: "#007AFF",
+  },
+  secondaryRow: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: "#c6c6c8",
+    alignItems: "center",
+  },
+  secondaryText: {
+    fontSize: 17,
+    color: "#666",
   },
   codeBox: {
     backgroundColor: "#fff",
@@ -560,48 +639,33 @@ const styles = StyleSheet.create({
     letterSpacing: 4,
     color: "#000",
   },
-  inputRow: {
+  loadingRow: {
+    flexDirection: "row",
     backgroundColor: "#fff",
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: "#c6c6c8",
+    alignItems: "center",
+  },
+  repoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: "#c6c6c8",
   },
-  textInput: {
-    fontSize: 17,
-    paddingVertical: 8,
-  },
-  buttonRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 12,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    backgroundColor: "#f2f2f7",
-    borderWidth: 1,
-    borderColor: "#c6c6c8",
-  },
-  cancelButtonText: {
+  repoName: {
     fontSize: 17,
     color: "#000",
   },
-  primaryButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    backgroundColor: "#007AFF",
-  },
-  primaryButtonText: {
-    fontSize: 17,
-    color: "#fff",
-    fontWeight: "600",
+  repoMeta: {
+    fontSize: 13,
+    color: "#666",
+    marginTop: 2,
   },
   disabledButton: {
     opacity: 0.6,

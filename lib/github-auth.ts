@@ -2,6 +2,8 @@ import * as SecureStore from 'expo-secure-store';
 import { getDatabase } from './database';
 
 const SECURE_STORE_KEY = 'github_access_token';
+const SECURE_STORE_KEY_REFRESH_TOKEN = 'github_refresh_token';
+const SECURE_STORE_KEY_TOKEN_EXPIRES_AT = 'github_token_expires_at';
 const SETTINGS_KEY_REPOSITORY = 'github_repository';
 const SETTINGS_KEY_CONNECTED_AT = 'github_connected_at';
 
@@ -17,7 +19,11 @@ export interface DeviceCodeResponse {
 export interface AccessTokenSuccessResponse {
   access_token: string;
   token_type: string;
-  scope: string;
+  scope?: string;
+  // GitHub App specific fields
+  expires_in?: number;
+  refresh_token?: string;
+  refresh_token_expires_in?: number;
 }
 
 export interface AccessTokenErrorResponse {
@@ -45,7 +51,7 @@ export async function requestDeviceCode(clientId: string): Promise<DeviceCodeRes
     },
     body: JSON.stringify({
       client_id: clientId,
-      scope: 'repo',
+      // GitHub Appではscopeは不要（fine-grained permissionsを使用）
     }),
   });
 
@@ -80,16 +86,83 @@ export async function pollForAccessToken(
   return response.json();
 }
 
+// Client ID（リフレッシュ時に必要）
+const GITHUB_CLIENT_ID = process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID ?? "";
+
 export async function getAccessToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(SECURE_STORE_KEY);
+  const token = await SecureStore.getItemAsync(SECURE_STORE_KEY);
+  if (!token) return null;
+
+  // 有効期限をチェック
+  const expiresAtStr = await SecureStore.getItemAsync(SECURE_STORE_KEY_TOKEN_EXPIRES_AT);
+  if (expiresAtStr) {
+    const expiresAt = parseInt(expiresAtStr, 10);
+    const now = Date.now();
+    // 期限切れの5分前にリフレッシュ
+    if (now >= expiresAt - 5 * 60 * 1000) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        return SecureStore.getItemAsync(SECURE_STORE_KEY);
+      }
+      // リフレッシュ失敗時は現在のトークンを返す（まだ使える可能性がある）
+    }
+  }
+
+  return token;
 }
 
-export async function setAccessToken(token: string): Promise<void> {
+export async function setAccessToken(token: string, expiresIn?: number, refreshToken?: string): Promise<void> {
   await SecureStore.setItemAsync(SECURE_STORE_KEY, token);
+
+  if (expiresIn) {
+    const expiresAt = Date.now() + expiresIn * 1000;
+    await SecureStore.setItemAsync(SECURE_STORE_KEY_TOKEN_EXPIRES_AT, expiresAt.toString());
+  }
+
+  if (refreshToken) {
+    await SecureStore.setItemAsync(SECURE_STORE_KEY_REFRESH_TOKEN, refreshToken);
+  }
 }
 
 export async function clearAccessToken(): Promise<void> {
   await SecureStore.deleteItemAsync(SECURE_STORE_KEY);
+  await SecureStore.deleteItemAsync(SECURE_STORE_KEY_REFRESH_TOKEN);
+  await SecureStore.deleteItemAsync(SECURE_STORE_KEY_TOKEN_EXPIRES_AT);
+}
+
+async function refreshAccessToken(): Promise<boolean> {
+  const refreshToken = await SecureStore.getItemAsync(SECURE_STORE_KEY_REFRESH_TOKEN);
+  if (!refreshToken || !GITHUB_CLIENT_ID) {
+    return false;
+  }
+
+  try {
+    const response = await fetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: GITHUB_CLIENT_ID,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }),
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const data = await response.json();
+    if (isAccessTokenSuccess(data)) {
+      await setAccessToken(data.access_token, data.expires_in, data.refresh_token);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 export async function isConnected(): Promise<boolean> {
@@ -163,4 +236,78 @@ export async function getGitHubConfig(): Promise<GitHubConfig> {
     connectedAt: connectedAtResult?.value ?? null,
     hasToken: token !== null,
   };
+}
+
+// GitHub API: リポジトリ一覧取得
+
+export interface GitHubRepository {
+  id: number;
+  name: string;
+  full_name: string;
+  private: boolean;
+  owner: {
+    login: string;
+  };
+}
+
+interface InstallationResponse {
+  id: number;
+  account: {
+    login: string;
+  };
+}
+
+interface InstallationsResponse {
+  total_count: number;
+  installations: InstallationResponse[];
+}
+
+interface RepositoriesResponse {
+  total_count: number;
+  repositories: GitHubRepository[];
+}
+
+export async function fetchAccessibleRepositories(): Promise<GitHubRepository[]> {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  // 1. インストール一覧を取得
+  const installationsRes = await fetch('https://api.github.com/user/installations', {
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': `Bearer ${token}`,
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+  });
+
+  if (!installationsRes.ok) {
+    throw new Error(`Failed to fetch installations: ${installationsRes.status}`);
+  }
+
+  const installationsData: InstallationsResponse = await installationsRes.json();
+
+  // 2. 各インストールのリポジトリを取得
+  const allRepositories: GitHubRepository[] = [];
+
+  for (const installation of installationsData.installations) {
+    const reposRes = await fetch(
+      `https://api.github.com/user/installations/${installation.id}/repositories`,
+      {
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${token}`,
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      }
+    );
+
+    if (reposRes.ok) {
+      const reposData: RepositoriesResponse = await reposRes.json();
+      allRepositories.push(...reposData.repositories);
+    }
+  }
+
+  return allRepositories;
 }
