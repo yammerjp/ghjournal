@@ -3,15 +3,12 @@ import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
 import { initDatabase } from "../lib/database";
-import { commitAllSealedDrafts } from "../lib/diary";
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    initDatabase()
-      .then(() => commitAllSealedDrafts())
-      .then(() => setIsReady(true));
+    initDatabase().then(() => setIsReady(true));
   }, []);
 
   if (!isReady) {
@@ -25,8 +22,8 @@ export default function RootLayout() {
   return (
     <Stack>
       <Stack.Screen name="index" options={{ title: "日記" }} />
-      <Stack.Screen name="diaries/new" options={{ title: "新規作成" }} />
-      <Stack.Screen name="diaries/[diaryId]" options={{ title: "日記" }} />
+      <Stack.Screen name="entries/new" options={{ title: "新規作成" }} />
+      <Stack.Screen name="entries/[entryId]" options={{ title: "日記" }} />
       <Stack.Screen name="settings" options={{ title: "設定" }} />
       <Stack.Screen name="debug-logs" options={{ title: "デバッグログ" }} />
     </Stack>

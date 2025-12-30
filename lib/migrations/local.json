@@ -1,37 +1,32 @@
 [
   {
     "version": 1,
-    "description": "Create diary_versions table",
-    "sql": "CREATE TABLE IF NOT EXISTS diary_versions (id TEXT PRIMARY KEY, diary_id TEXT NOT NULL, title TEXT NOT NULL, date TEXT NOT NULL, content TEXT NOT NULL, location_latitude REAL, location_longitude REAL, location_description TEXT, location_city TEXT, weather_wmo_code INTEGER, weather_description TEXT, weather_temperature_min REAL, weather_temperature_max REAL, archived_at TEXT, created_at TEXT NOT NULL)"
+    "description": "Create entries table",
+    "sql": "CREATE TABLE IF NOT EXISTS entries (id TEXT PRIMARY KEY, date TEXT NOT NULL UNIQUE, title TEXT NOT NULL, content TEXT NOT NULL, location_latitude REAL, location_longitude REAL, location_description TEXT, location_city TEXT, weather_wmo_code INTEGER, weather_description TEXT, weather_temperature_min REAL, weather_temperature_max REAL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, sync_status TEXT NOT NULL DEFAULT 'uncommitted', synced_sha TEXT)"
   },
   {
     "version": 2,
-    "description": "Create diary_heads table",
-    "sql": "CREATE TABLE IF NOT EXISTS diary_heads (diary_id TEXT PRIMARY KEY, version_id TEXT NOT NULL)"
+    "description": "Create entries indexes",
+    "sql": "CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(date); CREATE INDEX IF NOT EXISTS idx_entries_sync_status ON entries(sync_status)"
   },
   {
     "version": 3,
-    "description": "Create diary_drafts table",
-    "sql": "CREATE TABLE IF NOT EXISTS diary_drafts (diary_id TEXT PRIMARY KEY, title TEXT NOT NULL, date TEXT NOT NULL, content TEXT NOT NULL, location_latitude REAL, location_longitude REAL, location_description TEXT, location_city TEXT, weather_wmo_code INTEGER, weather_description TEXT, weather_temperature_min REAL, weather_temperature_max REAL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, sealed_at TEXT, pending_version_id TEXT)"
+    "description": "Create attachments table",
+    "sql": "CREATE TABLE IF NOT EXISTS attachments (path TEXT PRIMARY KEY, date TEXT NOT NULL, filename TEXT NOT NULL, sha TEXT NOT NULL, is_downloaded INTEGER NOT NULL DEFAULT 0)"
   },
   {
     "version": 4,
-    "description": "Create streams table",
-    "sql": "CREATE TABLE IF NOT EXISTS streams (stream_id TEXT PRIMARY KEY, name TEXT, imported_file_size INTEGER, imported_file_mtime INTEGER, imported_at TEXT)"
+    "description": "Create attachments index",
+    "sql": "CREATE INDEX IF NOT EXISTS idx_attachments_date ON attachments(date)"
   },
   {
     "version": 5,
-    "description": "Create diaries view",
-    "sql": "CREATE VIEW IF NOT EXISTS diaries AS SELECT dv.id, dv.diary_id, dv.title, dv.date, dv.content, dv.location_latitude, dv.location_longitude, dv.location_description, dv.location_city, dv.weather_wmo_code, dv.weather_description, dv.weather_temperature_min, dv.weather_temperature_max, dv.archived_at, dv.created_at FROM diary_versions dv JOIN diary_heads dh ON dv.id = dh.version_id WHERE dv.archived_at IS NULL"
+    "description": "Create settings table",
+    "sql": "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
   },
   {
     "version": 6,
     "description": "Create debug_logs table",
     "sql": "CREATE TABLE IF NOT EXISTS debug_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT NOT NULL, level TEXT NOT NULL, message TEXT NOT NULL, details TEXT)"
-  },
-  {
-    "version": 7,
-    "description": "Create settings table",
-    "sql": "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
   }
 ]

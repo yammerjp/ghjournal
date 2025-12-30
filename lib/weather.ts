@@ -1,6 +1,6 @@
 import { isWeatherEnabled } from './secrets';
 import { debugLog } from './debug-log';
-import { Weather } from './diary';
+import { Weather } from './entry';
 
 // Open-Meteo API response
 interface OpenMeteoResponse {

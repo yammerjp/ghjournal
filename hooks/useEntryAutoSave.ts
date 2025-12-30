@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Location, Weather, saveDraft } from '../lib/diary';
+import { Location, Weather, saveEntry } from '../lib/entry';
 
 const DEBOUNCE_MS = 500;
 
-export interface UseDiaryAutoSaveProps {
+export interface UseEntryAutoSaveProps {
   initialId: string | null;
   title: string;
   date: Date;
@@ -13,8 +13,8 @@ export interface UseDiaryAutoSaveProps {
   enabled: boolean;
 }
 
-interface UseDiaryAutoSaveResult {
-  diaryId: string | null;
+interface UseEntryAutoSaveResult {
+  entryId: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   isSaving: boolean;
@@ -35,7 +35,7 @@ const generateTitle = (content: string): string => {
   return firstLine.slice(0, 20) + (firstLine.length > 20 ? '...' : '');
 };
 
-export function useDiaryAutoSave({
+export function useEntryAutoSave({
   initialId,
   title,
   date,
@@ -43,8 +43,8 @@ export function useDiaryAutoSave({
   location,
   weather,
   enabled,
-}: UseDiaryAutoSaveProps): UseDiaryAutoSaveResult {
-  const [diaryId, setDiaryId] = useState<string | null>(initialId);
+}: UseEntryAutoSaveProps): UseEntryAutoSaveResult {
+  const [entryId, setEntryId] = useState<string | null>(initialId);
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -63,8 +63,8 @@ export function useDiaryAutoSave({
     const currentDate = formatDate(date);
     const currentContent = content.trim();
 
-    // For existing diary just loaded, initialize lastSaved and skip save
-    if (diaryId && !lastSavedRef.current) {
+    // For existing entry just loaded, initialize lastSaved and skip save
+    if (entryId && !lastSavedRef.current) {
       lastSavedRef.current = {
         title: currentTitle,
         date: currentDate,
@@ -94,8 +94,8 @@ export function useDiaryAutoSave({
     setIsSaving(true);
 
     try {
-      const result = await saveDraft({
-        diaryId,
+      const result = await saveEntry({
+        id: entryId,
         title: currentTitle,
         date: currentDate,
         content: currentContent,
@@ -103,7 +103,7 @@ export function useDiaryAutoSave({
         weather: weather ?? undefined,
       });
 
-      setDiaryId(result.diaryId);
+      setEntryId(result.id);
       setCreatedAt(result.createdAt);
       setUpdatedAt(result.updatedAt);
 
@@ -118,7 +118,7 @@ export function useDiaryAutoSave({
     } finally {
       setIsSaving(false);
     }
-  }, [title, date, content, location, weather, diaryId]);
+  }, [title, date, content, location, weather, entryId]);
 
   // Debounced auto-save effect
   useEffect(() => {
@@ -142,7 +142,7 @@ export function useDiaryAutoSave({
   }, [enabled, title, date, content, location, weather, performSave]);
 
   return {
-    diaryId,
+    entryId,
     createdAt,
     updatedAt,
     isSaving,

@@ -1,32 +1,21 @@
 import { ExpoConfig, ConfigContext } from "expo/config";
 
-const GOOGLE_IOS_CLIENT_ID = process.env.GOOGLE_IOS_CLIENT_ID;
-const GOOGLE_WEB_CLIENT_ID = process.env.GOOGLE_WEB_CLIENT_ID;
-
-// Derive iOS URL scheme from iOS Client ID
-const getIosUrlScheme = (): string | undefined => {
-  if (!GOOGLE_IOS_CLIENT_ID) return undefined;
-  // Convert "xxx.apps.googleusercontent.com" to "com.googleusercontent.apps.xxx"
-  const parts = GOOGLE_IOS_CLIENT_ID.split(".");
-  if (parts.length >= 4 && parts.slice(-3).join(".") === "apps.googleusercontent.com") {
-    return `com.googleusercontent.apps.${parts[0]}`;
-  }
-  return undefined;
-};
-
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: "diary.db",
-  slug: "diary.db",
+  name: "ghjournal",
+  extra: {
+    githubClientId: process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID ?? "",
+  },
+  slug: "ghjournal",
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
-  scheme: "diarydb",
+  scheme: "ghjournal",
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
     supportsTablet: true,
-    bundleIdentifier: "jp.yammer.diarydb",
+    bundleIdentifier: "jp.yammer.ghjournal",
   },
   android: {
     adaptiveIcon: {
@@ -57,23 +46,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     "expo-sqlite",
     "@react-native-community/datetimepicker",
-    ...(getIosUrlScheme()
-      ? [
-          [
-            "@react-native-google-signin/google-signin",
-            {
-              iosUrlScheme: getIosUrlScheme(),
-            },
-          ] as [string, { iosUrlScheme: string }],
-        ]
-      : []),
+    "expo-secure-store",
   ],
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
-  },
-  extra: {
-    googleIosClientId: GOOGLE_IOS_CLIENT_ID,
-    googleWebClientId: GOOGLE_WEB_CLIENT_ID,
   },
 });

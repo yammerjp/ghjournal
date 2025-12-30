@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Location, Weather } from '../lib/diary';
+import { Location, Weather } from '../lib/entry';
 import { getWeather } from '../lib/weather';
 import { isWeatherEnabled } from '../lib/secrets';
 

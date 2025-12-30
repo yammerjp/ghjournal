@@ -1,6 +1,6 @@
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { useWeatherFetch } from './useWeatherFetch';
-import { Location, Weather } from '../lib/diary';
+import { Location, Weather } from '../lib/entry';
 
 // Mock dependencies
 jest.mock('../lib/weather', () => ({

@@ -3,7 +3,7 @@ import { Text, View, SectionList, TouchableOpacity, StyleSheet } from "react-nat
 import { useRouter, useNavigation } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Diary, getDiaries } from "../lib/diary";
+import { Entry, getEntries } from "../lib/entry";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -28,13 +28,13 @@ const getWeekday = (dateStr: string): string => {
 
 interface Section {
   title: string;
-  data: Diary[];
+  data: Entry[];
 }
 
 export default function Index() {
   const router = useRouter();
   const navigation = useNavigation();
-  const [diaries, setDiaries] = useState<Diary[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -44,18 +44,18 @@ export default function Index() {
 
   useFocusEffect(
     useCallback(() => {
-      getDiaries().then(setDiaries);
+      getEntries().then(setEntries);
     }, [])
   );
 
-  // Group diaries by year-month
+  // Group entries by year-month
   const sections = useMemo((): Section[] => {
-    const grouped = new Map<string, Diary[]>();
+    const grouped = new Map<string, Entry[]>();
 
-    for (const diary of diaries) {
-      const yearMonth = diary.date.slice(0, 7); // "2025-12"
+    for (const entry of entries) {
+      const yearMonth = entry.date.slice(0, 7); // "2025-12"
       const existing = grouped.get(yearMonth) || [];
-      existing.push(diary);
+      existing.push(entry);
       grouped.set(yearMonth, existing);
     }
 
@@ -63,7 +63,7 @@ export default function Index() {
       title: formatYearMonth(yearMonth + "-01"),
       data,
     }));
-  }, [diaries]);
+  }, [entries]);
 
   const renderSectionHeader = ({ section }: { section: Section }) => (
     <View style={styles.sectionHeader}>
@@ -71,7 +71,7 @@ export default function Index() {
     </View>
   );
 
-  const renderItem = ({ item }: { item: Diary }) => {
+  const renderItem = ({ item }: { item: Entry }) => {
     const day = getDay(item.date);
     const weekday = getWeekday(item.date);
 
@@ -89,8 +89,8 @@ export default function Index() {
 
     return (
       <TouchableOpacity
-        style={styles.diaryItem}
-        onPress={() => router.push(`/diaries/${item.diary_id}`)}
+        style={styles.entryItem}
+        onPress={() => router.push(`/entries/${item.id}`)}
       >
         <View style={styles.dateColumn}>
           <Text style={styles.weekday}>{weekday}</Text>
@@ -98,15 +98,15 @@ export default function Index() {
         </View>
         <View style={styles.contentColumn}>
           {item.title ? (
-            <Text style={styles.diaryTitle} numberOfLines={1}>
+            <Text style={styles.entryTitle} numberOfLines={1}>
               {item.title}
             </Text>
           ) : null}
-          <Text style={styles.diaryContent} numberOfLines={2}>
+          <Text style={styles.entryContent} numberOfLines={2}>
             {item.content}
           </Text>
           {metaItems.length > 0 && (
-            <Text style={styles.diaryMeta} numberOfLines={1}>
+            <Text style={styles.entryMeta} numberOfLines={1}>
               {metaItems.join(" · ")}
             </Text>
           )}
@@ -141,7 +141,7 @@ export default function Index() {
 
       <TouchableOpacity
         style={styles.addButton}
-        onPress={() => router.push("/diaries/new")}
+        onPress={() => router.push("/entries/new")}
       >
         <Ionicons name="add" size={32} color="#fff" />
       </TouchableOpacity>
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#333",
   },
-  diaryItem: {
+  entryItem: {
     flexDirection: "row",
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -212,18 +212,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
-  diaryTitle: {
+  entryTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
     marginBottom: 4,
   },
-  diaryContent: {
+  entryContent: {
     fontSize: 14,
     color: "#666",
     lineHeight: 20,
   },
-  diaryMeta: {
+  entryMeta: {
     fontSize: 12,
     color: "#999",
     marginTop: 4,

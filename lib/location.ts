@@ -1,5 +1,5 @@
 import * as ExpoLocation from 'expo-location';
-import { Location } from './diary';
+import { Location } from './entry';
 import { debugLog } from './debug-log';
 
 export async function requestLocationPermission(): Promise<boolean> {

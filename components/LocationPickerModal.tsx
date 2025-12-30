@@ -9,7 +9,7 @@ import {
   Dimensions,
 } from "react-native";
 import MapView, { Marker, MapPressEvent, Region } from "react-native-maps";
-import { Location } from "../lib/diary";
+import { Location } from "../lib/entry";
 import { getCurrentLocation, reverseGeocode } from "../lib/location";
 
 interface LocationPickerModalProps {

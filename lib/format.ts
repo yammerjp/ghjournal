@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Weather } from './diary';
+import { Weather } from './entry';
 
 // Date formatting utilities
 

@@ -15,7 +15,7 @@ import {
 } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Location, getDiaryForEdit, deleteDiary, commitDraft } from "../lib/diary";
+import { Location, getEntry, deleteEntry } from "../lib/entry";
 import { getCurrentLocation } from "../lib/location";
 import {
   formatDate,
@@ -28,23 +28,22 @@ import {
 } from "../lib/format";
 import LocationPickerModal from "./LocationPickerModal";
 import DatePickerModal from "./DatePickerModal";
-import VersionHistoryModal from "./VersionHistoryModal";
 import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { useWeatherFetch } from "../hooks/useWeatherFetch";
-import { useDiaryAutoSave } from "../hooks/useDiaryAutoSave";
+import { useEntryAutoSave } from "../hooks/useEntryAutoSave";
 import { useContentEditor } from "../hooks/useContentEditor";
 
-interface DiaryEditorProps {
-  diaryId: string | null;
+interface EntryEditorProps {
+  entryId: string | null;
 }
 
-export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
+export default function EntryEditor({ entryId }: EntryEditorProps) {
   const router = useRouter();
   const navigation = useNavigation();
 
-  const isNew = diaryId === null;
+  const isNew = entryId === null;
 
-  // Diary data states
+  // Entry data states
   const [title, setTitle] = useState("");
   const [date, setDate] = useState<Date>(new Date());
   const [content, setContent] = useState("");
@@ -53,7 +52,6 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   // UI states
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [isMetaExpanded, setIsMetaExpanded] = useState(false);
 
   // Other states
@@ -72,13 +70,13 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   } = useWeatherFetch(location, date);
 
   const {
-    diaryId: diaryDbId,
+    entryId: entryDbId,
     createdAt,
     updatedAt,
     setCreatedAt,
     setUpdatedAt,
-  } = useDiaryAutoSave({
-    initialId: diaryId,
+  } = useEntryAutoSave({
+    initialId: entryId,
     title,
     date,
     content,
@@ -106,54 +104,54 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   const weatherIcon = getWeatherIcon(weather?.wmoCode ?? null);
   const temperature = formatTemperature(weather);
 
-  // Load existing diary or initialize new one
+  // Load existing entry or initialize new one
   useEffect(() => {
     if (isNew) {
-      // New diary: get current location
+      // New entry: get current location
       getCurrentLocation().then((loc) => {
         setLocation(loc);
         setInitialLoadComplete(true);
       });
     } else {
-      // Existing diary: load from DB (draft or committed version)
-      getDiaryForEdit(diaryId!).then((d) => {
-        if (d) {
+      // Existing entry: load from DB
+      getEntry(entryId!).then((e) => {
+        if (e) {
           const loadedWeather =
-            d.weather_wmo_code !== null &&
-            d.weather_description !== null &&
-            d.weather_temperature_min !== null &&
-            d.weather_temperature_max !== null
+            e.weather_wmo_code !== null &&
+            e.weather_description !== null &&
+            e.weather_temperature_min !== null &&
+            e.weather_temperature_max !== null
               ? {
-                  wmoCode: d.weather_wmo_code,
-                  description: d.weather_description,
-                  temperatureMin: d.weather_temperature_min,
-                  temperatureMax: d.weather_temperature_max,
+                  wmoCode: e.weather_wmo_code,
+                  description: e.weather_description,
+                  temperatureMin: e.weather_temperature_min,
+                  temperatureMax: e.weather_temperature_max,
                 }
               : null;
 
           const loadedLocation =
-            d.location_latitude && d.location_longitude
+            e.location_latitude && e.location_longitude
               ? {
-                  latitude: d.location_latitude,
-                  longitude: d.location_longitude,
-                  name: d.location_description ?? undefined,
-                  shortName: d.location_city ?? undefined,
+                  latitude: e.location_latitude,
+                  longitude: e.location_longitude,
+                  name: e.location_description ?? undefined,
+                  shortName: e.location_city ?? undefined,
                 }
               : null;
 
-          setTitle(d.title);
-          setDate(parseDate(d.date));
-          setContent(d.content);
+          setTitle(e.title);
+          setDate(parseDate(e.date));
+          setContent(e.content);
           setLocation(loadedLocation);
           setWeather(loadedWeather);
-          setCreatedAt(d.created_at);
-          setUpdatedAt(d.updated_at);
+          setCreatedAt(e.created_at);
+          setUpdatedAt(e.updated_at);
         }
         setLoading(false);
         setInitialLoadComplete(true);
       });
     }
-  }, [diaryId, isNew, setWeather, setCreatedAt, setUpdatedAt]);
+  }, [entryId, isNew, setWeather, setCreatedAt, setUpdatedAt]);
 
   // Wrapper functions to track user edits
   const handleTitleChange = (text: string) => {
@@ -203,7 +201,7 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
   }, [dismissKeyboard]);
 
   const handleDelete = () => {
-    if (!diaryDbId) {
+    if (!entryDbId) {
       router.back();
       return;
     }
@@ -214,67 +212,23 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
         text: "削除",
         style: "destructive",
         onPress: async () => {
-          await deleteDiary(diaryDbId);
+          await deleteEntry(entryDbId);
           router.back();
         },
       },
     ]);
   };
 
-  const handleShowHistory = () => {
-    dismissKeyboard();
-    setShowVersionHistory(true);
-  };
-
-  const handleHistoryRestore = useCallback(() => {
-    // Reload the diary data after restore
-    if (diaryId) {
-      getDiaryForEdit(diaryId).then((d) => {
-        if (d) {
-          setTitle(d.title);
-          setDate(parseDate(d.date));
-          setContent(d.content);
-          setLocation(
-            d.location_latitude && d.location_longitude
-              ? {
-                  latitude: d.location_latitude,
-                  longitude: d.location_longitude,
-                  name: d.location_description ?? undefined,
-                  shortName: d.location_city ?? undefined,
-                }
-              : null
-          );
-          setWeather(
-            d.weather_wmo_code !== null &&
-            d.weather_description !== null &&
-            d.weather_temperature_min !== null &&
-            d.weather_temperature_max !== null
-              ? {
-                  wmoCode: d.weather_wmo_code,
-                  description: d.weather_description,
-                  temperatureMin: d.weather_temperature_min,
-                  temperatureMax: d.weather_temperature_max,
-                }
-              : null
-          );
-          setUserHasEdited(false);
-        }
-      });
-    }
-  }, [diaryId, setWeather]);
-
   const showMenu = () => {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ["キャンセル", "編集履歴", "削除"],
-          destructiveButtonIndex: 2,
+          options: ["キャンセル", "削除"],
+          destructiveButtonIndex: 1,
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
           if (buttonIndex === 1) {
-            handleShowHistory();
-          } else if (buttonIndex === 2) {
             handleDelete();
           }
         }
@@ -283,19 +237,15 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
       // Android: use Alert as a simple menu
       Alert.alert("メニュー", undefined, [
         { text: "キャンセル", style: "cancel" },
-        { text: "編集履歴", onPress: handleShowHistory },
         { text: "削除", style: "destructive", onPress: handleDelete },
       ]);
     }
   };
 
-  // Commit draft and go back
-  const handleGoBack = useCallback(async () => {
-    if (diaryDbId) {
-      await commitDraft(diaryDbId);
-    }
+  // Go back (entry is auto-saved)
+  const handleGoBack = useCallback(() => {
     router.back();
-  }, [diaryDbId, router]);
+  }, [router]);
 
   // Header setup
   useLayoutEffect(() => {
@@ -314,7 +264,7 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
         </TouchableOpacity>
       ),
     });
-  }, [navigation, isNew, date, diaryDbId, handleGoBack]);
+  }, [navigation, isNew, date, entryDbId, handleGoBack]);
 
   if (loading) {
     return (
@@ -456,13 +406,6 @@ export default function DiaryEditor({ diaryId }: DiaryEditorProps) {
         initialDate={date}
         onClose={() => setShowDatePicker(false)}
         onSelect={handleDateChange}
-      />
-
-      <VersionHistoryModal
-        visible={showVersionHistory}
-        diaryId={diaryDbId}
-        onClose={() => setShowVersionHistory(false)}
-        onRestore={handleHistoryRestore}
       />
 
       {/* Content */}
