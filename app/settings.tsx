@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Text,
   View,
@@ -7,19 +7,46 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { getLocalDatabaseVersion, resetDatabase } from "../lib/database";
 import { isWeatherEnabled, setWeatherEnabled } from "../lib/secrets";
+import {
+  configureGoogleSignIn,
+  signInToGoogle,
+  signOutFromGoogle,
+  isSignedIn,
+  refreshAccessToken,
+} from "../lib/cloud-storage";
+import { syncWithCloud } from "../lib/sync";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
 export default function Settings() {
   const router = useRouter();
   const [dbVersion, setDbVersion] = useState<number | null>(null);
   const [weatherEnabled, setWeatherEnabledState] = useState(false);
+  const [googleSignedIn, setGoogleSignedIn] = useState(false);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     getLocalDatabaseVersion().then(setDbVersion);
     loadWeatherEnabled();
+    checkGoogleSignIn();
+  }, []);
+
+  const checkGoogleSignIn = useCallback(async () => {
+    configureGoogleSignIn();
+    const signedIn = isSignedIn();
+    setGoogleSignedIn(signedIn);
+    if (signedIn) {
+      const user = GoogleSignin.getCurrentUser();
+      setGoogleEmail(user?.user?.email ?? null);
+      // Refresh token on app load
+      await refreshAccessToken();
+    }
   }, []);
 
   const loadWeatherEnabled = async () => {
@@ -30,6 +57,71 @@ export default function Settings() {
   const handleWeatherToggle = async (value: boolean) => {
     setWeatherEnabledState(value);
     await setWeatherEnabled(value);
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      const token = await signInToGoogle();
+      if (token) {
+        setGoogleSignedIn(true);
+        const user = GoogleSignin.getCurrentUser();
+        setGoogleEmail(user?.user?.email ?? null);
+        Alert.alert("成功", "Googleアカウントに接続しました");
+      } else {
+        Alert.alert("エラー", "サインインに失敗しました");
+      }
+    } catch (error) {
+      console.error("Sign in error:", error);
+      Alert.alert("エラー", "サインインに失敗しました");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignOut = async () => {
+    Alert.alert(
+      "確認",
+      "Googleアカウントとの接続を解除しますか？",
+      [
+        { text: "キャンセル", style: "cancel" },
+        {
+          text: "解除",
+          style: "destructive",
+          onPress: async () => {
+            await signOutFromGoogle();
+            setGoogleSignedIn(false);
+            setGoogleEmail(null);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSync = async () => {
+    setIsSyncing(true);
+    try {
+      // Refresh token before sync
+      await refreshAccessToken();
+
+      const result = await syncWithCloud();
+
+      if (result.uploaded || result.imported > 0) {
+        Alert.alert(
+          "同期完了",
+          `アップロード: ${result.uploaded ? "成功" : "なし"}\n` +
+          `ダウンロード: ${result.downloaded}件\n` +
+          `インポート: ${result.imported}件`
+        );
+      } else {
+        Alert.alert("同期完了", "変更はありませんでした");
+      }
+    } catch (error) {
+      console.error("Sync error:", error);
+      Alert.alert("エラー", "同期に失敗しました: " + String(error));
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleResetDatabase = () => {
@@ -65,6 +157,53 @@ export default function Settings() {
         </View>
         <Text style={styles.note}>
           日記の日付と位置情報から天気を自動記録します（Open-Meteo使用）
+        </Text>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionHeader}>クラウド同期</Text>
+        {googleSignedIn ? (
+          <>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Googleアカウント</Text>
+              <Text style={styles.rowValue} numberOfLines={1}>
+                {googleEmail ?? "接続済み"}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.actionRow}
+              onPress={handleSync}
+              disabled={isSyncing}
+            >
+              {isSyncing ? (
+                <ActivityIndicator size="small" color="#007AFF" />
+              ) : (
+                <Text style={styles.actionText}>今すぐ同期</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.linkRow}
+              onPress={handleGoogleSignOut}
+            >
+              <Text style={styles.rowLabel}>接続を解除</Text>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <TouchableOpacity
+            style={styles.actionRow}
+            onPress={handleGoogleSignIn}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#007AFF" />
+            ) : (
+              <Text style={styles.actionText}>Googleアカウントに接続</Text>
+            )}
+          </TouchableOpacity>
+        )}
+        <Text style={styles.note}>
+          Google Driveを使って複数デバイス間で日記を同期します
         </Text>
       </View>
 
@@ -151,6 +290,20 @@ const styles = StyleSheet.create({
   chevron: {
     fontSize: 20,
     color: "#c6c6c8",
+  },
+  actionRow: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: "#c6c6c8",
+    alignItems: "center",
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  actionText: {
+    fontSize: 17,
+    color: "#007AFF",
   },
   dangerRow: {
     backgroundColor: "#fff",
