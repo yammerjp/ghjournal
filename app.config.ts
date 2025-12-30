@@ -18,6 +18,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: "jp.yammer.ghjournal",
   },
   android: {
+    package: "jp.yammer.ghjournal",
     adaptiveIcon: {
       backgroundColor: "#E6F4FE",
       foregroundImage: "./assets/images/android-icon-foreground.png",
