@@ -1,9 +1,10 @@
 import { useCallback, useLayoutEffect, useState, useMemo } from "react";
-import { Text, View, SectionList, TouchableOpacity, StyleSheet } from "react-native";
+import { Text, View, SectionList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Entry, getEntries } from "../lib/entry";
+import { useSync } from "../contexts/SyncContext";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -35,6 +36,8 @@ export default function Index() {
   const router = useRouter();
   const navigation = useNavigation();
   const [entries, setEntries] = useState<Entry[]>([]);
+  const { isSyncing, pullIfNeeded, sync, isConnected } = useSync();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -45,8 +48,24 @@ export default function Index() {
   useFocusEffect(
     useCallback(() => {
       getEntries().then(setEntries);
-    }, [])
+      // 画面フォーカス時に同期（条件を満たせば）
+      pullIfNeeded().then(() => {
+        // 同期後に再取得
+        getEntries().then(setEntries);
+      });
+    }, [pullIfNeeded])
   );
+
+  // Pull-to-refresh handler
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await sync();
+      await getEntries().then(setEntries);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [sync]);
 
   // Group entries by year-month
   const sections = useMemo((): Section[] => {
@@ -87,6 +106,8 @@ export default function Index() {
       metaItems.push(weatherText);
     }
 
+    const isUnsynced = item.sync_status === 'uncommitted';
+
     return (
       <TouchableOpacity
         style={styles.entryItem}
@@ -95,6 +116,9 @@ export default function Index() {
         <View style={styles.dateColumn}>
           <Text style={styles.weekday}>{weekday}</Text>
           <Text style={styles.day}>{day}</Text>
+          {isUnsynced && isConnected && (
+            <View style={styles.unsyncedDot} />
+          )}
         </View>
         <View style={styles.contentColumn}>
           {item.title ? (
@@ -118,7 +142,12 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>ghjournal</Text>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>ghjournal</Text>
+          {isSyncing && (
+            <ActivityIndicator size="small" color="#007AFF" style={styles.syncIndicator} />
+          )}
+        </View>
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => router.push("/settings")}
@@ -137,6 +166,13 @@ export default function Index() {
           <Text style={styles.emptyText}>日記がありません</Text>
         }
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor="#007AFF"
+          />
+        }
       />
 
       <TouchableOpacity
@@ -165,10 +201,17 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#e0e0e0",
   },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: "bold",
     color: "#333",
+  },
+  syncIndicator: {
+    marginLeft: 8,
   },
   listContent: {
     paddingBottom: 100,
@@ -207,6 +250,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
     color: "#333",
+  },
+  unsyncedDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#FF9500",
+    marginTop: 4,
   },
   contentColumn: {
     flex: 1,

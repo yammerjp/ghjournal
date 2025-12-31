@@ -16,6 +16,7 @@ import {
 import { useRouter, useNavigation } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Location, getEntry, deleteEntry } from "../lib/entry";
+import { useSync } from "../contexts/SyncContext";
 import { getCurrentLocation } from "../lib/location";
 import {
   formatDate,
@@ -40,6 +41,7 @@ interface EntryEditorProps {
 export default function EntryEditor({ entryId }: EntryEditorProps) {
   const router = useRouter();
   const navigation = useNavigation();
+  const { sync, isSyncing, isConnected } = useSync();
 
   const isNew = entryId === null;
 
@@ -242,10 +244,19 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
     }
   };
 
-  // Go back (entry is auto-saved)
+  // Go back (entry is auto-saved, then sync)
   const handleGoBack = useCallback(() => {
+    // Sync in background when closing (don't await to avoid blocking UI)
+    if (isConnected && userHasEdited) {
+      sync();
+    }
     router.back();
-  }, [router]);
+  }, [router, isConnected, userHasEdited, sync]);
+
+  // Manual sync
+  const handleSync = useCallback(() => {
+    sync();
+  }, [sync]);
 
   // Header setup
   useLayoutEffect(() => {
@@ -259,12 +270,27 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
         </TouchableOpacity>
       ),
       headerRight: () => (
-        <TouchableOpacity onPress={showMenu} style={styles.headerButton}>
-          <Ionicons name="ellipsis-horizontal" size={22} color="#007AFF" />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          {isConnected && (
+            <TouchableOpacity
+              onPress={handleSync}
+              style={styles.headerButton}
+              disabled={isSyncing}
+            >
+              {isSyncing ? (
+                <ActivityIndicator size="small" color="#007AFF" />
+              ) : (
+                <Ionicons name="cloud-upload-outline" size={22} color="#007AFF" />
+              )}
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={showMenu} style={styles.headerButton}>
+            <Ionicons name="ellipsis-horizontal" size={22} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
       ),
     });
-  }, [navigation, isNew, date, entryDbId, handleGoBack]);
+  }, [navigation, isNew, date, entryDbId, handleGoBack, isConnected, isSyncing, handleSync]);
 
   if (loading) {
     return (
@@ -451,6 +477,10 @@ const styles = StyleSheet.create({
   headerButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   metaRow: {
     flexDirection: "row",

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { View, ActivityIndicator } from "react-native";
 import { initDatabase } from "../lib/database";
+import { SyncProvider } from "../contexts/SyncContext";
 
 export default function RootLayout() {
   const [isReady, setIsReady] = useState(false);
@@ -20,12 +21,14 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ title: "ghjournal" }} />
-      <Stack.Screen name="entries/new" options={{ title: "新規作成" }} />
-      <Stack.Screen name="entries/[entryId]" options={{ title: "ghjournal" }} />
-      <Stack.Screen name="settings" options={{ title: "設定" }} />
-      <Stack.Screen name="debug-logs" options={{ title: "デバッグログ" }} />
-    </Stack>
+    <SyncProvider>
+      <Stack>
+        <Stack.Screen name="index" options={{ title: "ghjournal" }} />
+        <Stack.Screen name="entries/new" options={{ title: "新規作成" }} />
+        <Stack.Screen name="entries/[entryId]" options={{ title: "ghjournal" }} />
+        <Stack.Screen name="settings" options={{ title: "設定" }} />
+        <Stack.Screen name="debug-logs" options={{ title: "デバッグログ" }} />
+      </Stack>
+    </SyncProvider>
   );
 }
