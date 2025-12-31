@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { getAccessToken, getRepository } from './github-auth';
 import { getDatabase } from './database';
-import { Entry, saveEntry, getEntryByDate, deleteEntry } from './entry';
+import { Entry, saveEntryRaw, getEntryByDate, deleteEntry } from './entry';
 import { entryToMarkdown, markdownToEntry } from './entry-format';
 
 const GITHUB_API_BASE = 'https://api.github.com';
@@ -238,16 +238,12 @@ export async function pullEntries(): Promise<PullResult> {
         const content = await fetchFileContent(token, repository, file.path);
         const remoteEntry = markdownToEntry(content, localEntry.id);
 
-        await saveEntry({
+        await saveEntryRaw({
           ...remoteEntry,
           id: localEntry.id,
+          sync_status: 'committed',
+          synced_sha: file.sha,
         });
-
-        // Update sync status
-        await database.runAsync(
-          `UPDATE entries SET sync_status = 'committed', synced_sha = ? WHERE id = ?`,
-          [file.sha, localEntry.id]
-        );
 
         result.updated++;
       } else {
@@ -255,13 +251,11 @@ export async function pullEntries(): Promise<PullResult> {
         const content = await fetchFileContent(token, repository, file.path);
         const newEntry = markdownToEntry(content, Crypto.randomUUID());
 
-        await saveEntry(newEntry);
-
-        // Update sync status
-        await database.runAsync(
-          `UPDATE entries SET sync_status = 'committed', synced_sha = ? WHERE id = ?`,
-          [file.sha, newEntry.id]
-        );
+        await saveEntryRaw({
+          ...newEntry,
+          sync_status: 'committed',
+          synced_sha: file.sha,
+        });
 
         result.created++;
       }

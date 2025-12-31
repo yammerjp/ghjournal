@@ -60,7 +60,6 @@ describe('GitHub Auth Module', () => {
           },
           body: JSON.stringify({
             client_id: 'test-client-id',
-            scope: 'repo',
           }),
         })
       );

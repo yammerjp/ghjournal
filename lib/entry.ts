@@ -131,3 +131,38 @@ export async function deleteEntry(id: string): Promise<boolean> {
   const result = await database.runAsync('DELETE FROM entries WHERE id = ?', [id]);
   return result.changes > 0;
 }
+
+/**
+ * Save a full Entry object directly (used for sync from remote)
+ * This preserves all fields including created_at, updated_at from the Entry
+ */
+export async function saveEntryRaw(entry: Entry): Promise<void> {
+  const database = await getDatabase();
+
+  await database.runAsync(
+    `INSERT OR REPLACE INTO entries
+     (id, date, title, content, location_latitude, location_longitude,
+      location_description, location_city, weather_wmo_code, weather_description,
+      weather_temperature_min, weather_temperature_max, created_at, updated_at,
+      sync_status, synced_sha)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      entry.id,
+      entry.date,
+      entry.title,
+      entry.content,
+      entry.location_latitude,
+      entry.location_longitude,
+      entry.location_description,
+      entry.location_city,
+      entry.weather_wmo_code,
+      entry.weather_description,
+      entry.weather_temperature_min,
+      entry.weather_temperature_max,
+      entry.created_at,
+      entry.updated_at,
+      entry.sync_status,
+      entry.synced_sha,
+    ]
+  );
+}
