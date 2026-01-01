@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useState, useRef } from "react";
 import { Text, View, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -14,6 +14,10 @@ interface MarkedDates {
     dotColor?: string;
     selected?: boolean;
     selectedColor?: string;
+    customStyles?: {
+      container?: object;
+      text?: object;
+    };
   };
 }
 
@@ -23,6 +27,8 @@ export default function CalendarScreen() {
   const [entryDates, setEntryDates] = useState<Set<string>>(new Set());
   const { isSyncing, pullIfNeeded } = useSync();
   const today = formatDate(new Date());
+  const calendarRef = useRef<any>(null);
+  const isFirstMount = useRef(true);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -36,7 +42,12 @@ export default function CalendarScreen() {
       pullIfNeeded().then(() => {
         loadEntryDates();
       });
-    }, [pullIfNeeded])
+      // Scroll to current month only on first mount
+      if (isFirstMount.current && calendarRef.current) {
+        calendarRef.current.scrollToMonth(today);
+        isFirstMount.current = false;
+      }
+    }, [pullIfNeeded, today])
   );
 
   const loadEntryDates = async () => {
@@ -56,22 +67,49 @@ export default function CalendarScreen() {
 
   for (const date of entryDates) {
     markedDates[date] = {
-      marked: true,
-      dotColor: "#007AFF",
+      customStyles: {
+        container: {
+          backgroundColor: "#007AFF",
+          borderRadius: 8,
+        },
+        text: {
+          color: "#fff",
+          fontWeight: "600",
+        },
+      },
     };
   }
 
   // Highlight today
   if (markedDates[today]) {
+    // Today with entry: blue background with border
     markedDates[today] = {
-      ...markedDates[today],
-      selected: true,
-      selectedColor: "#E3F2FD",
+      customStyles: {
+        container: {
+          backgroundColor: "#007AFF",
+          borderRadius: 8,
+          borderWidth: 2,
+          borderColor: "#FF3B30",
+        },
+        text: {
+          color: "#fff",
+          fontWeight: "600",
+        },
+      },
     };
   } else {
+    // Today without entry: light background
     markedDates[today] = {
-      selected: true,
-      selectedColor: "#E3F2FD",
+      customStyles: {
+        container: {
+          backgroundColor: "#E3F2FD",
+          borderRadius: 8,
+        },
+        text: {
+          color: "#007AFF",
+          fontWeight: "600",
+        },
+      },
     };
   }
 
@@ -94,14 +132,16 @@ export default function CalendarScreen() {
 
       <View style={styles.calendarContainer}>
         <CalendarList
+          ref={calendarRef}
           current={today}
           onDayPress={handleDayPress}
           markedDates={markedDates}
-          horizontal={true}
-          pagingEnabled={true}
+          markingType="custom"
           pastScrollRange={24}
           futureScrollRange={12}
-          showScrollIndicator={false}
+          showScrollIndicator={true}
+          calendarHeight={350}
+          staticHeader={true}
           theme={{
             backgroundColor: "#ffffff",
             calendarBackground: "#ffffff",
@@ -127,8 +167,12 @@ export default function CalendarScreen() {
 
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={styles.legendDot} />
+          <View style={styles.legendBox} />
           <Text style={styles.legendText}>日記がある日</Text>
+        </View>
+        <View style={[styles.legendItem, { marginLeft: 16 }]}>
+          <View style={styles.legendTodayBox} />
+          <Text style={styles.legendText}>今日</Text>
         </View>
       </View>
 
@@ -186,11 +230,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  legendDot: {
-    width: 8,
-    height: 8,
+  legendBox: {
+    width: 16,
+    height: 16,
     borderRadius: 4,
     backgroundColor: "#007AFF",
+    marginRight: 6,
+  },
+  legendTodayBox: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    backgroundColor: "#E3F2FD",
     marginRight: 6,
   },
   legendText: {
