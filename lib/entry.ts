@@ -126,6 +126,14 @@ export async function getEntries(): Promise<Entry[]> {
   return entries;
 }
 
+export async function getEntryDates(): Promise<string[]> {
+  const database = await getDatabase();
+  const results = await database.getAllAsync<{ date: string }>(
+    'SELECT date FROM entries ORDER BY date DESC'
+  );
+  return results.map(r => r.date);
+}
+
 export async function deleteEntry(id: string): Promise<boolean> {
   const database = await getDatabase();
   const result = await database.runAsync('DELETE FROM entries WHERE id = ?', [id]);

@@ -3,8 +3,8 @@ import { Text, View, SectionList, TouchableOpacity, StyleSheet, ActivityIndicato
 import { useRouter, useNavigation } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Entry, getEntries } from "../lib/entry";
-import { useSync } from "../contexts/SyncContext";
+import { Entry, getEntries } from "../../lib/entry";
+import { useSync } from "../../contexts/SyncContext";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   listContent: {
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   sectionHeader: {
     backgroundColor: "#f5f5f5",
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     position: "absolute",
-    bottom: 32,
+    bottom: 90,
     right: 16,
     width: 56,
     height: 56,
