@@ -41,7 +41,7 @@ interface EntryEditorProps {
 export default function EntryEditor({ entryId }: EntryEditorProps) {
   const router = useRouter();
   const navigation = useNavigation();
-  const { sync, isSyncing, isConnected } = useSync();
+  const { sync, isConnected } = useSync();
 
   const isNew = entryId === null;
 
@@ -253,11 +253,6 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
     router.back();
   }, [router, isConnected, userHasEdited, sync]);
 
-  // Manual sync
-  const handleSync = useCallback(() => {
-    sync();
-  }, [sync]);
-
   // Header setup
   useLayoutEffect(() => {
     const headerTitle = isNew ? "新規作成" : formatDate(date).replace(/-/g, "/");
@@ -270,27 +265,12 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
         </TouchableOpacity>
       ),
       headerRight: () => (
-        <View style={styles.headerRight}>
-          {isConnected && (
-            <TouchableOpacity
-              onPress={handleSync}
-              style={styles.headerButton}
-              disabled={isSyncing}
-            >
-              {isSyncing ? (
-                <ActivityIndicator size="small" color="#007AFF" />
-              ) : (
-                <Ionicons name="cloud-upload-outline" size={22} color="#007AFF" />
-              )}
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity onPress={showMenu} style={styles.headerButton}>
-            <Ionicons name="ellipsis-horizontal" size={22} color="#007AFF" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={showMenu} style={styles.headerButton}>
+          <Ionicons name="ellipsis-horizontal" size={22} color="#007AFF" />
+        </TouchableOpacity>
       ),
     });
-  }, [navigation, isNew, date, entryDbId, handleGoBack, isConnected, isSyncing, handleSync]);
+  }, [navigation, isNew, date, entryDbId, handleGoBack]);
 
   if (loading) {
     return (
@@ -477,10 +457,6 @@ const styles = StyleSheet.create({
   headerButton: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-  },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
   },
   metaRow: {
     flexDirection: "row",
