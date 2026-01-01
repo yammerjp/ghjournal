@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useLayoutEffect, useState, useMemo, useCallback, useRef } from "react";
 import {
   Text,
   View,
@@ -11,8 +11,9 @@ import {
   ActionSheetIOS,
   Platform,
   Keyboard,
-  GestureResponderEvent,
+  LayoutChangeEvent,
 } from "react-native";
+import { getCharacterIndex } from "../modules/expo-text-cursor/src";
 import { useRouter, useNavigation } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Location, getEntry, deleteEntry } from "../lib/entry";
@@ -32,7 +33,6 @@ import DatePickerModal from "./DatePickerModal";
 import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { useWeatherFetch } from "../hooks/useWeatherFetch";
 import { useEntryAutoSave } from "../hooks/useEntryAutoSave";
-import { useContentEditor } from "../hooks/useContentEditor";
 
 interface EntryEditorProps {
   entryId: string | null;
@@ -87,19 +87,26 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
     enabled: initialLoadComplete && (!isNew || userHasEdited),
   });
 
-  const {
-    isEditing,
-    selection,
-    showTextInput,
-    contentInputRef,
-    handleTap,
-    exitEditMode,
-    onSelectionApplied,
-    focusInput,
-  } = useContentEditor({
-    content,
-    isNewAndEmpty: isNew && !content,
-  });
+  // Content editing
+  const contentInputRef = useRef<TextInput>(null);
+  const [isEditable, setIsEditable] = useState(isNew);
+  const [contentAreaWidth, setContentAreaWidth] = useState(0);
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const scrollOffsetRef = useRef(0);
+
+  // Debug state
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
+
+  // コンテンツエリアのレイアウト変更時に幅を取得
+  const handleContentAreaLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width } = event.nativeEvent.layout;
+    setContentAreaWidth(width);
+  }, []);
+
+  // スクロール位置を追跡
+  const handleScroll = useCallback((e: any) => {
+    scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+  }, []);
 
   const autoTitle = useMemo(() => generateTitle(content), [content]);
   const isAutoTitle = !title.trim();
@@ -176,19 +183,114 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
     setUserHasEdited(true);
   };
 
-  // Dismiss keyboard and exit editing mode
+  // Dismiss keyboard
   const dismissKeyboard = useCallback(() => {
     Keyboard.dismiss();
     contentInputRef.current?.blur();
-    exitEditMode();
-  }, [exitEditMode, contentInputRef]);
+  }, []);
 
-  // Handle double tap to enter editing mode
-  const handleContentAreaPress = useCallback((event: GestureResponderEvent) => {
-    const { locationX, locationY } = event.nativeEvent;
-    handleTap(locationX, locationY);
-    focusInput();
-  }, [handleTap, focusInput]);
+  // Calculate cursor position from tap location
+  const calculateCursorPosition = useCallback((locationX: number, locationY: number): number => {
+    const PADDING_TOP = 16;
+    const PADDING_HORIZONTAL = 16;
+    const FONT_SIZE = 16;
+    const LINE_HEIGHT = 24;
+
+    const adjustedX = locationX - PADDING_HORIZONTAL;
+    // スクロールオフセットを加算して、テキスト全体での位置を計算
+    const adjustedY = locationY - PADDING_TOP + scrollOffsetRef.current;
+
+    console.log('[CursorDebug] Input:', {
+      locationX: locationX.toFixed(1),
+      locationY: locationY.toFixed(1),
+      scrollOffset: scrollOffsetRef.current.toFixed(1),
+      adjustedX: adjustedX.toFixed(1),
+      adjustedY: adjustedY.toFixed(1),
+      contentAreaWidth,
+    });
+
+    // iOSではネイティブモジュールを使用、それ以外はフォールバック
+    if (Platform.OS === "ios" && contentAreaWidth > 0) {
+      try {
+        const containerWidth = contentAreaWidth - PADDING_HORIZONTAL * 2;
+        const result = getCharacterIndex(content, adjustedX, adjustedY, FONT_SIZE, LINE_HEIGHT, containerWidth);
+        // 前後10文字を表示
+        const contextStart = Math.max(0, result - 10);
+        const contextEnd = Math.min(content.length, result + 10);
+        const before = content.slice(contextStart, result).replace(/\n/g, '↵');
+        const after = content.slice(result, contextEnd).replace(/\n/g, '↵');
+        const debugText = `Y:${adjustedY.toFixed(0)} scroll:${scrollOffsetRef.current.toFixed(0)} → [${result}]\n「${before}|${after}」`;
+        setDebugInfo(debugText);
+        console.log('[CursorDebug] Native result:', {
+          containerWidth,
+          result,
+          context: `${before}|${after}`,
+          textLength: content.length,
+        });
+        return result;
+      } catch (e) {
+        console.warn("Failed to get character index from native module:", e);
+      }
+    }
+
+    // フォールバック: 近似計算
+    const AVG_CHAR_WIDTH = 12;
+
+    const lines = content.split('\n');
+    const lineIndex = Math.max(0, Math.min(Math.floor(adjustedY / LINE_HEIGHT), lines.length - 1));
+
+    let charIndex = 0;
+    for (let i = 0; i < lineIndex; i++) {
+      charIndex += lines[i].length + 1;
+    }
+
+    const col = Math.max(0, Math.floor(adjustedX / AVG_CHAR_WIDTH));
+    charIndex += Math.min(col, lines[lineIndex]?.length ?? 0);
+
+    return Math.min(charIndex, content.length);
+  }, [content, contentAreaWidth]);
+
+  // Handle touch to distinguish tap from scroll
+  const handleTouchStart = useCallback((e: any) => {
+    touchStartRef.current = {
+      x: e.nativeEvent.pageX,
+      y: e.nativeEvent.pageY,
+      time: Date.now(),
+    };
+  }, []);
+
+  const handleTouchEnd = useCallback((e: any) => {
+    if (!touchStartRef.current || isEditable) return;
+
+    const startX = touchStartRef.current.x;
+    const startY = touchStartRef.current.y;
+    const endX = e.nativeEvent.pageX;
+    const endY = e.nativeEvent.pageY;
+    const deltaX = Math.abs(endX - startX);
+    const deltaY = Math.abs(endY - startY);
+    const deltaTime = Date.now() - touchStartRef.current.time;
+
+    // Tap: small movement and short duration
+    const TAP_THRESHOLD = 10;
+    const TAP_DURATION = 300;
+
+    if (deltaX < TAP_THRESHOLD && deltaY < TAP_THRESHOLD && deltaTime < TAP_DURATION) {
+      // It's a tap - calculate cursor position using local coordinates
+      const localX = e.nativeEvent.locationX;
+      const localY = e.nativeEvent.locationY;
+      const cursorPos = calculateCursorPosition(localX, localY);
+
+      setIsEditable(true);
+      setTimeout(() => {
+        contentInputRef.current?.focus();
+        setTimeout(() => {
+          contentInputRef.current?.setSelection(cursorPos, cursorPos);
+        }, 50);
+      }, 50);
+    }
+
+    touchStartRef.current = null;
+  }, [isEditable, calculateCursorPosition]);
 
   // Open date picker with keyboard dismiss
   const openDatePicker = useCallback(() => {
@@ -414,31 +516,35 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
         onSelect={handleDateChange}
       />
 
+      {/* Debug overlay */}
+      {debugInfo && (
+        <View style={styles.debugOverlay}>
+          <Text style={styles.debugText}>{debugInfo}</Text>
+        </View>
+      )}
+
       {/* Content */}
-      {showTextInput ? (
+      <View
+        style={styles.contentArea}
+        onLayout={handleContentAreaLayout}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <TextInput
           ref={contentInputRef}
           style={styles.contentInput}
           value={content}
           onChangeText={handleContentChange}
-          onBlur={exitEditMode}
-          onSelectionChange={onSelectionApplied}
-          selection={selection}
+          onScroll={handleScroll}
+          editable={isEditable}
           multiline
           placeholder="今日あったことを書いてみましょう..."
           placeholderTextColor="#ccc"
           textAlignVertical="top"
-          autoFocus={isNew && !content}
+          autoFocus={isNew}
+          scrollEnabled={true}
         />
-      ) : (
-        <TouchableWithoutFeedback onPress={handleContentAreaPress}>
-          <View style={styles.contentArea}>
-            <Text style={content ? styles.contentText : styles.contentPlaceholder}>
-              {content || "ダブルタップで編集..."}
-            </Text>
-          </View>
-        </TouchableWithoutFeedback>
-      )}
+      </View>
       </View>
     </TouchableWithoutFeedback>
   );
@@ -569,6 +675,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
   },
+  contentArea: {
+    flex: 1,
+  },
+  debugOverlay: {
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    padding: 8,
+    marginHorizontal: 16,
+    borderRadius: 8,
+  },
+  debugText: {
+    color: '#0f0',
+    fontSize: 12,
+    fontFamily: 'Menlo',
+  },
   contentInput: {
     flex: 1,
     paddingHorizontal: 16,
@@ -576,20 +696,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: "#333",
-  },
-  contentArea: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  contentText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#333",
-  },
-  contentPlaceholder: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#ccc",
   },
 });
