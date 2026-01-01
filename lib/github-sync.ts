@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { getAccessToken, getRepository } from './github-auth';
 import { getDatabase } from './database';
-import { Entry, saveEntryRaw, getEntryByDate, deleteEntry } from './entry';
+import { Entry, saveEntryRaw, getEntryByDate, deleteEntryLocal, isPendingDeletion, getPendingDeletions, removePendingDeletion } from './entry';
 import { entryToMarkdown, markdownToEntry } from './entry-format';
 
 const GITHUB_API_BASE = 'https://api.github.com';
@@ -10,6 +10,7 @@ const ENTRIES_PATH = 'ghjournal/entries';
 export interface PushResult {
   success: boolean;
   pushed: number;
+  deleted: number;
   errors: string[];
 }
 
@@ -46,10 +47,10 @@ interface ContentResponse {
 }
 
 /**
- * Push uncommitted local entries to GitHub
+ * Push uncommitted local entries to GitHub and delete pending deletions
  */
 export async function pushEntries(): Promise<PushResult> {
-  const result: PushResult = { success: true, pushed: 0, errors: [] };
+  const result: PushResult = { success: true, pushed: 0, deleted: 0, errors: [] };
 
   const token = await getAccessToken();
   if (!token) {
@@ -147,6 +148,67 @@ export async function pushEntries(): Promise<PushResult> {
     }
   }
 
+  // Process pending deletions (entries deleted locally or with date changed)
+  const pendingDeletions = await getPendingDeletions();
+  for (const deletion of pendingDeletions) {
+    try {
+      const path = `${ENTRIES_PATH}/${deletion.date}.md`;
+
+      // Get current sha from remote (might have changed)
+      const checkResponse = await fetch(
+        `${GITHUB_API_BASE}/repos/${repository}/contents/${path}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        }
+      );
+
+      if (checkResponse.status === 404) {
+        // File already deleted on remote, just remove from pending
+        await removePendingDeletion(deletion.date);
+        continue;
+      }
+
+      if (!checkResponse.ok) {
+        throw new Error(`Failed to check ${deletion.date}: ${checkResponse.status}`);
+      }
+
+      const existingFile = await checkResponse.json();
+
+      // Delete the file from GitHub
+      const deleteResponse = await fetch(
+        `${GITHUB_API_BASE}/repos/${repository}/contents/${path}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github+json',
+            'Content-Type': 'application/json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+          body: JSON.stringify({
+            message: `Delete ${deletion.date}`,
+            sha: existingFile.sha,
+          }),
+        }
+      );
+
+      if (!deleteResponse.ok) {
+        throw new Error(`Failed to delete ${deletion.date}: ${deleteResponse.status}`);
+      }
+
+      // Remove from pending deletions
+      await removePendingDeletion(deletion.date);
+      result.deleted++;
+    } catch (error) {
+      result.success = false;
+      result.errors.push(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   return result;
 }
 
@@ -218,6 +280,11 @@ export async function pullEntries(): Promise<PullResult> {
       const date = dateMatch[1];
       remoteDates.add(date);
 
+      // Skip if this date is pending deletion (deleted locally or date was changed)
+      if (await isPendingDeletion(date)) {
+        continue;
+      }
+
       const localEntry = await getEntryByDate(date);
 
       if (localEntry) {
@@ -267,7 +334,8 @@ export async function pullEntries(): Promise<PullResult> {
       if (!remoteDates.has(entry.date)) {
         if (entry.sync_status === 'committed' && entry.synced_sha) {
           // Entry was synced but no longer on remote - delete locally
-          await deleteEntry(entry.id);
+          // Use deleteEntryLocal to avoid adding to pending_deletions (already deleted on remote)
+          await deleteEntryLocal(entry.id);
           result.deleted++;
         }
         // If uncommitted, keep local (new entry not yet pushed)

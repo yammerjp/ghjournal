@@ -28,5 +28,10 @@
     "version": 6,
     "description": "Create debug_logs table",
     "sql": "CREATE TABLE IF NOT EXISTS debug_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT NOT NULL, level TEXT NOT NULL, message TEXT NOT NULL, details TEXT)"
+  },
+  {
+    "version": 7,
+    "description": "Create pending_deletions table for tracking entries to delete from remote",
+    "sql": "CREATE TABLE IF NOT EXISTS pending_deletions (date TEXT PRIMARY KEY, synced_sha TEXT NOT NULL, created_at TEXT NOT NULL)"
   }
 ]

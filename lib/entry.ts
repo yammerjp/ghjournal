@@ -54,15 +54,20 @@ export async function saveEntry(params: SaveEntryParams): Promise<SaveEntryResul
   const id = params.id ?? Crypto.randomUUID();
   const now = new Date().toISOString();
 
-  // Get existing entry to preserve created_at
+  // Get existing entry to preserve created_at and handle date changes
   let createdAt = now;
   if (params.id) {
     const existing = await database.getFirstAsync<Entry>(
-      'SELECT created_at FROM entries WHERE id = ?',
+      'SELECT created_at, date, synced_sha FROM entries WHERE id = ?',
       [params.id]
     );
     if (existing) {
       createdAt = existing.created_at;
+
+      // If date changed and entry was synced, mark old date for deletion
+      if (existing.date !== params.date && existing.synced_sha) {
+        await addPendingDeletion(existing.date, existing.synced_sha);
+      }
     }
   }
 
@@ -136,8 +141,67 @@ export async function getEntryDates(): Promise<string[]> {
 
 export async function deleteEntry(id: string): Promise<boolean> {
   const database = await getDatabase();
+
+  // Get entry before deleting to check if it was synced
+  const entry = await database.getFirstAsync<Entry>(
+    'SELECT date, synced_sha FROM entries WHERE id = ?',
+    [id]
+  );
+
+  if (entry?.synced_sha) {
+    // Record pending deletion for sync
+    await addPendingDeletion(entry.date, entry.synced_sha);
+  }
+
   const result = await database.runAsync('DELETE FROM entries WHERE id = ?', [id]);
   return result.changes > 0;
+}
+
+/**
+ * Delete entry locally without adding to pending_deletions
+ * Used when syncing deletions from remote (already deleted on remote)
+ */
+export async function deleteEntryLocal(id: string): Promise<boolean> {
+  const database = await getDatabase();
+  const result = await database.runAsync('DELETE FROM entries WHERE id = ?', [id]);
+  return result.changes > 0;
+}
+
+// Pending deletions management
+export interface PendingDeletion {
+  date: string;
+  synced_sha: string;
+  created_at: string;
+}
+
+export async function addPendingDeletion(date: string, syncedSha: string): Promise<void> {
+  const database = await getDatabase();
+  const now = new Date().toISOString();
+  await database.runAsync(
+    'INSERT OR REPLACE INTO pending_deletions (date, synced_sha, created_at) VALUES (?, ?, ?)',
+    [date, syncedSha, now]
+  );
+}
+
+export async function getPendingDeletions(): Promise<PendingDeletion[]> {
+  const database = await getDatabase();
+  return await database.getAllAsync<PendingDeletion>(
+    'SELECT * FROM pending_deletions'
+  );
+}
+
+export async function removePendingDeletion(date: string): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync('DELETE FROM pending_deletions WHERE date = ?', [date]);
+}
+
+export async function isPendingDeletion(date: string): Promise<boolean> {
+  const database = await getDatabase();
+  const result = await database.getFirstAsync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM pending_deletions WHERE date = ?',
+    [date]
+  );
+  return (result?.count ?? 0) > 0;
 }
 
 /**

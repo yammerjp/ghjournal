@@ -276,7 +276,8 @@ export default function Settings() {
       if (pullResult.created > 0) messages.push(`${pullResult.created}件取得`);
       if (pullResult.updated > 0) messages.push(`${pullResult.updated}件更新`);
       if (pushResult.pushed > 0) messages.push(`${pushResult.pushed}件送信`);
-      if (pullResult.deleted > 0) messages.push(`${pullResult.deleted}件削除`);
+      if (pushResult.deleted > 0) messages.push(`${pushResult.deleted}件リモート削除`);
+      if (pullResult.deleted > 0) messages.push(`${pullResult.deleted}件ローカル削除`);
 
       if (pullResult.conflicts > 0) {
         Alert.alert(
