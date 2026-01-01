@@ -1,5 +1,5 @@
 {
-  "name": "diary.db",
+  "name": "ghjournal",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
