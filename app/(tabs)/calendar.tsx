@@ -2,7 +2,7 @@ import { useCallback, useLayoutEffect, useState } from "react";
 import { Text, View, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
-import { Calendar, DateData } from "react-native-calendars";
+import { CalendarList, DateData } from "react-native-calendars";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { getEntryDates, getEntryByDate } from "../../lib/entry";
 import { useSync } from "../../contexts/SyncContext";
@@ -21,8 +21,8 @@ export default function CalendarScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const [entryDates, setEntryDates] = useState<Set<string>>(new Set());
-  const [currentMonth, setCurrentMonth] = useState(new Date());
   const { isSyncing, pullIfNeeded } = useSync();
+  const today = formatDate(new Date());
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -51,13 +51,8 @@ export default function CalendarScreen() {
     }
   };
 
-  const handleMonthChange = (month: DateData) => {
-    setCurrentMonth(new Date(month.timestamp));
-  };
-
   // Convert entry dates to marked dates format
   const markedDates: MarkedDates = {};
-  const today = formatDate(new Date());
 
   for (const date of entryDates) {
     markedDates[date] = {
@@ -97,34 +92,38 @@ export default function CalendarScreen() {
         </TouchableOpacity>
       </View>
 
-      <Calendar
-        current={formatDate(currentMonth)}
-        onDayPress={handleDayPress}
-        onMonthChange={handleMonthChange}
-        markedDates={markedDates}
-        theme={{
-          backgroundColor: "#ffffff",
-          calendarBackground: "#ffffff",
-          textSectionTitleColor: "#666",
-          selectedDayBackgroundColor: "#007AFF",
-          selectedDayTextColor: "#007AFF",
-          todayTextColor: "#007AFF",
-          dayTextColor: "#333",
-          textDisabledColor: "#ccc",
-          dotColor: "#007AFF",
-          selectedDotColor: "#007AFF",
-          arrowColor: "#007AFF",
-          monthTextColor: "#333",
-          textDayFontSize: 16,
-          textMonthFontSize: 18,
-          textDayHeaderFontSize: 14,
-          textDayFontWeight: "400",
-          textMonthFontWeight: "600",
-          textDayHeaderFontWeight: "600",
-        }}
-        style={styles.calendar}
-        enableSwipeMonths={true}
-      />
+      <View style={styles.calendarContainer}>
+        <CalendarList
+          current={today}
+          onDayPress={handleDayPress}
+          markedDates={markedDates}
+          horizontal={true}
+          pagingEnabled={true}
+          pastScrollRange={24}
+          futureScrollRange={12}
+          showScrollIndicator={false}
+          theme={{
+            backgroundColor: "#ffffff",
+            calendarBackground: "#ffffff",
+            textSectionTitleColor: "#666",
+            selectedDayBackgroundColor: "#007AFF",
+            selectedDayTextColor: "#007AFF",
+            todayTextColor: "#007AFF",
+            dayTextColor: "#333",
+            textDisabledColor: "#ccc",
+            dotColor: "#007AFF",
+            selectedDotColor: "#007AFF",
+            arrowColor: "#007AFF",
+            monthTextColor: "#333",
+            textDayFontSize: 16,
+            textMonthFontSize: 18,
+            textDayHeaderFontSize: 14,
+            textDayFontWeight: "400",
+            textMonthFontWeight: "600",
+            textDayHeaderFontWeight: "600",
+          }}
+        />
+      </View>
 
       <View style={styles.legend}>
         <View style={styles.legendItem}>
@@ -174,8 +173,8 @@ const styles = StyleSheet.create({
   settingsButton: {
     padding: 4,
   },
-  calendar: {
-    marginTop: 8,
+  calendarContainer: {
+    flex: 1,
   },
   legend: {
     paddingHorizontal: 16,
