@@ -94,9 +94,6 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const scrollOffsetRef = useRef(0);
 
-  // Debug state
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
-
   // コンテンツエリアのレイアウト変更時に幅を取得
   const handleContentAreaLayout = useCallback((event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
@@ -200,34 +197,11 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
     // スクロールオフセットを加算して、テキスト全体での位置を計算
     const adjustedY = locationY - PADDING_TOP + scrollOffsetRef.current;
 
-    console.log('[CursorDebug] Input:', {
-      locationX: locationX.toFixed(1),
-      locationY: locationY.toFixed(1),
-      scrollOffset: scrollOffsetRef.current.toFixed(1),
-      adjustedX: adjustedX.toFixed(1),
-      adjustedY: adjustedY.toFixed(1),
-      contentAreaWidth,
-    });
-
     // iOSではネイティブモジュールを使用、それ以外はフォールバック
     if (Platform.OS === "ios" && contentAreaWidth > 0) {
       try {
         const containerWidth = contentAreaWidth - PADDING_HORIZONTAL * 2;
-        const result = getCharacterIndex(content, adjustedX, adjustedY, FONT_SIZE, LINE_HEIGHT, containerWidth);
-        // 前後10文字を表示
-        const contextStart = Math.max(0, result - 10);
-        const contextEnd = Math.min(content.length, result + 10);
-        const before = content.slice(contextStart, result).replace(/\n/g, '↵');
-        const after = content.slice(result, contextEnd).replace(/\n/g, '↵');
-        const debugText = `Y:${adjustedY.toFixed(0)} scroll:${scrollOffsetRef.current.toFixed(0)} → [${result}]\n「${before}|${after}」`;
-        setDebugInfo(debugText);
-        console.log('[CursorDebug] Native result:', {
-          containerWidth,
-          result,
-          context: `${before}|${after}`,
-          textLength: content.length,
-        });
-        return result;
+        return getCharacterIndex(content, adjustedX, adjustedY, FONT_SIZE, LINE_HEIGHT, containerWidth);
       } catch (e) {
         console.warn("Failed to get character index from native module:", e);
       }
@@ -516,13 +490,6 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
         onSelect={handleDateChange}
       />
 
-      {/* Debug overlay */}
-      {debugInfo && (
-        <View style={styles.debugOverlay}>
-          <Text style={styles.debugText}>{debugInfo}</Text>
-        </View>
-      )}
-
       {/* Content */}
       <View
         style={styles.contentArea}
@@ -677,17 +644,6 @@ const styles = StyleSheet.create({
   },
   contentArea: {
     flex: 1,
-  },
-  debugOverlay: {
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    padding: 8,
-    marginHorizontal: 16,
-    borderRadius: 8,
-  },
-  debugText: {
-    color: '#0f0',
-    fontSize: 12,
-    fontFamily: 'Menlo',
   },
   contentInput: {
     flex: 1,
