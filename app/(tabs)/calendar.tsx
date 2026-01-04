@@ -27,7 +27,7 @@ export default function CalendarScreen() {
   const navigation = useNavigation();
   const { t } = useTranslation();
   const [entryDates, setEntryDates] = useState<Set<string>>(new Set());
-  const { isSyncing, pullIfNeeded } = useSync();
+  const { isSyncing, pullIfNeeded, repository, repositoryIsPrivate } = useSync();
   const today = formatDate(new Date());
   const calendarRef = useRef<any>(null);
   const isFirstMount = useRef(true);
@@ -119,7 +119,17 @@ export default function CalendarScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>ghjournal</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {repository ?? t('common.thisDevice')}
+          </Text>
+          {repository && repositoryIsPrivate !== null && (
+            <Ionicons
+              name={repositoryIsPrivate ? "lock-closed" : "globe-outline"}
+              size={18}
+              color="#666"
+              style={styles.repoIcon}
+            />
+          )}
           {isSyncing && (
             <ActivityIndicator size="small" color="#007AFF" style={styles.syncIndicator} />
           )}
@@ -205,16 +215,23 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e0e0e0",
   },
   headerLeft: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#333",
+    flexShrink: 1,
+  },
+  repoIcon: {
+    marginLeft: 6,
+    flexShrink: 0,
   },
   syncIndicator: {
     marginLeft: 8,
+    flexShrink: 0,
   },
   settingsButton: {
     padding: 4,

@@ -26,7 +26,7 @@ export default function Index() {
   const navigation = useNavigation();
   const { t, i18n } = useTranslation();
   const [entries, setEntries] = useState<Entry[]>([]);
-  const { isSyncing, pullIfNeeded, sync, isConnected } = useSync();
+  const { isSyncing, pullIfNeeded, sync, isConnected, repository, repositoryIsPrivate } = useSync();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const weekdayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
@@ -149,7 +149,17 @@ export default function Index() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>ghjournal</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {repository ?? t('common.thisDevice')}
+          </Text>
+          {repository && repositoryIsPrivate !== null && (
+            <Ionicons
+              name={repositoryIsPrivate ? "lock-closed" : "globe-outline"}
+              size={18}
+              color="#666"
+              style={styles.repoIcon}
+            />
+          )}
           {isSyncing && (
             <ActivityIndicator size="small" color="#007AFF" style={styles.syncIndicator} />
           )}
@@ -208,16 +218,23 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e0e0e0",
   },
   headerLeft: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#333",
+    flexShrink: 1,
+  },
+  repoIcon: {
+    marginLeft: 6,
+    flexShrink: 0,
   },
   syncIndicator: {
     marginLeft: 8,
+    flexShrink: 0,
   },
   listContent: {
     paddingBottom: 120,

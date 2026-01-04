@@ -10,6 +10,8 @@ interface SyncContextType {
   isSyncing: boolean;
   lastSyncAt: number | null;
   isConnected: boolean;
+  repository: string | null;
+  repositoryIsPrivate: boolean | null;
   sync: () => Promise<SyncResult | null>;
   pullIfNeeded: () => Promise<void>;
   checkConnection: () => Promise<void>;
@@ -21,10 +23,14 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncAt, setLastSyncAt] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [repository, setRepository] = useState<string | null>(null);
+  const [repositoryIsPrivate, setRepositoryIsPrivate] = useState<boolean | null>(null);
 
   const checkConnection = useCallback(async () => {
     const config = await getGitHubConfig();
     setIsConnected(config.hasToken && !!config.repository);
+    setRepository(config.repository);
+    setRepositoryIsPrivate(config.repositoryIsPrivate);
   }, []);
 
   const loadLastSyncAt = useCallback(async () => {
@@ -91,6 +97,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         isSyncing,
         lastSyncAt,
         isConnected,
+        repository,
+        repositoryIsPrivate,
         sync,
         pullIfNeeded,
         checkConnection,

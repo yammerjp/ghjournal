@@ -7,7 +7,8 @@
     "error": "Error",
     "loading": "Loading...",
     "confirm": "Confirm",
-    "back": "Back"
+    "back": "Back",
+    "thisDevice": "This iPhone"
   },
   "tabs": {
     "list": "List",

@@ -7,7 +7,8 @@
     "error": "エラー",
     "loading": "読み込み中...",
     "confirm": "確認",
-    "back": "戻る"
+    "back": "戻る",
+    "thisDevice": "このiPhone"
   },
   "tabs": {
     "list": "リスト",

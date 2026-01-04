@@ -5,6 +5,7 @@ const SECURE_STORE_KEY = 'github_access_token';
 const SECURE_STORE_KEY_REFRESH_TOKEN = 'github_refresh_token';
 const SECURE_STORE_KEY_TOKEN_EXPIRES_AT = 'github_token_expires_at';
 const SETTINGS_KEY_REPOSITORY = 'github_repository';
+const SETTINGS_KEY_REPOSITORY_IS_PRIVATE = 'github_repository_is_private';
 const SETTINGS_KEY_CONNECTED_AT = 'github_connected_at';
 
 export interface DeviceCodeResponse {
@@ -181,7 +182,7 @@ export async function getRepository(): Promise<string | null> {
   return result?.value ?? null;
 }
 
-export async function setRepository(repository: string): Promise<void> {
+export async function setRepository(repository: string, isPrivate?: boolean): Promise<void> {
   const database = await getDatabase();
   const now = new Date().toISOString();
 
@@ -189,6 +190,13 @@ export async function setRepository(repository: string): Promise<void> {
     'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
     [SETTINGS_KEY_REPOSITORY, repository]
   );
+
+  if (isPrivate !== undefined) {
+    await database.runAsync(
+      'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+      [SETTINGS_KEY_REPOSITORY_IS_PRIVATE, isPrivate ? 'true' : 'false']
+    );
+  }
 
   await database.runAsync(
     'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
@@ -206,12 +214,18 @@ export async function clearRepository(): Promise<void> {
 
   await database.runAsync(
     'DELETE FROM settings WHERE key = ?',
+    [SETTINGS_KEY_REPOSITORY_IS_PRIVATE]
+  );
+
+  await database.runAsync(
+    'DELETE FROM settings WHERE key = ?',
     [SETTINGS_KEY_CONNECTED_AT]
   );
 }
 
 export interface GitHubConfig {
   repository: string | null;
+  repositoryIsPrivate: boolean | null;
   connectedAt: string | null;
   hasToken: boolean;
 }
@@ -224,6 +238,11 @@ export async function getGitHubConfig(): Promise<GitHubConfig> {
     [SETTINGS_KEY_REPOSITORY]
   );
 
+  const isPrivateResult = await database.getFirstAsync<{ value: string }>(
+    'SELECT value FROM settings WHERE key = ?',
+    [SETTINGS_KEY_REPOSITORY_IS_PRIVATE]
+  );
+
   const connectedAtResult = await database.getFirstAsync<{ value: string }>(
     'SELECT value FROM settings WHERE key = ?',
     [SETTINGS_KEY_CONNECTED_AT]
@@ -233,6 +252,7 @@ export async function getGitHubConfig(): Promise<GitHubConfig> {
 
   return {
     repository: repoResult?.value ?? null,
+    repositoryIsPrivate: isPrivateResult?.value === 'true' ? true : isPrivateResult?.value === 'false' ? false : null,
     connectedAt: connectedAtResult?.value ?? null,
     hasToken: token !== null,
   };

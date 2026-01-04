@@ -206,7 +206,7 @@ export default function Settings() {
   };
 
   const handleSelectRepository = async (repo: GitHubRepository) => {
-    await setRepository(repo.full_name);
+    await setRepository(repo.full_name, repo.private);
     setShowRepoSelect(false);
     setAvailableRepos([]);
     setAuthState({ type: "idle" });

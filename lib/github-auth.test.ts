@@ -309,6 +309,15 @@ describe('GitHub Auth Module', () => {
           ['github_connected_at', expect.any(String)]
         );
       });
+
+      it('should save isPrivate when provided', async () => {
+        await setRepository('owner/repo', true);
+
+        expect(mockDb.runAsync).toHaveBeenCalledWith(
+          'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+          ['github_repository_is_private', 'true']
+        );
+      });
     });
 
     describe('clearRepository', () => {
@@ -329,11 +338,21 @@ describe('GitHub Auth Module', () => {
           ['github_connected_at']
         );
       });
+
+      it('should also remove repository_is_private', async () => {
+        await clearRepository();
+
+        expect(mockDb.runAsync).toHaveBeenCalledWith(
+          'DELETE FROM settings WHERE key = ?',
+          ['github_repository_is_private']
+        );
+      });
     });
 
     describe('getGitHubConfig', () => {
       it('should return full config when connected', async () => {
         mockDb._settings.set('github_repository', 'owner/repo');
+        mockDb._settings.set('github_repository_is_private', 'true');
         mockDb._settings.set('github_connected_at', '2024-01-15T10:00:00Z');
         mockSecureStore.getItemAsync.mockResolvedValueOnce('gho_token');
 
@@ -341,6 +360,7 @@ describe('GitHub Auth Module', () => {
 
         expect(result).toEqual({
           repository: 'owner/repo',
+          repositoryIsPrivate: true,
           connectedAt: '2024-01-15T10:00:00Z',
           hasToken: true,
         });
@@ -353,6 +373,7 @@ describe('GitHub Auth Module', () => {
 
         expect(result).toEqual({
           repository: null,
+          repositoryIsPrivate: null,
           connectedAt: null,
           hasToken: false,
         });
