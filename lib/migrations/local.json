@@ -33,5 +33,10 @@
     "version": 7,
     "description": "Create pending_deletions table for tracking entries to delete from remote",
     "sql": "CREATE TABLE IF NOT EXISTS pending_deletions (date TEXT PRIMARY KEY, synced_sha TEXT NOT NULL, created_at TEXT NOT NULL)"
+  },
+  {
+    "version": 8,
+    "description": "Add weather_symbol_name column for WeatherKit SF Symbols",
+    "sql": "ALTER TABLE entries ADD COLUMN weather_symbol_name TEXT"
   }
 ]

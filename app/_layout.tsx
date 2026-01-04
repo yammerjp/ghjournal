@@ -23,7 +23,7 @@ export default function RootLayout() {
   return (
     <SyncProvider>
       <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, headerBackTitle: "戻る" }} />
         <Stack.Screen name="entries/new" options={{ title: "新規作成" }} />
         <Stack.Screen name="entries/[entryId]" options={{ title: "ghjournal" }} />
         <Stack.Screen name="settings" options={{ title: "設定" }} />

@@ -9,10 +9,11 @@ export interface Location {
 }
 
 export interface Weather {
-  wmoCode: number;
+  wmoCode?: number;
   description: string;
   temperatureMin: number;
   temperatureMax: number;
+  symbolName?: string; // SF Symbols name from WeatherKit
 }
 
 export interface Entry {
@@ -28,6 +29,7 @@ export interface Entry {
   weather_description: string | null;
   weather_temperature_min: number | null;
   weather_temperature_max: number | null;
+  weather_symbol_name: string | null;
   created_at: string;
   updated_at: string;
   sync_status: 'committed' | 'uncommitted';
@@ -75,9 +77,9 @@ export async function saveEntry(params: SaveEntryParams): Promise<SaveEntryResul
     `INSERT OR REPLACE INTO entries
      (id, date, title, content, location_latitude, location_longitude,
       location_description, location_city, weather_wmo_code, weather_description,
-      weather_temperature_min, weather_temperature_max, created_at, updated_at,
-      sync_status, synced_sha)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      weather_temperature_min, weather_temperature_max, weather_symbol_name,
+      created_at, updated_at, sync_status, synced_sha)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       params.date,
@@ -91,6 +93,7 @@ export async function saveEntry(params: SaveEntryParams): Promise<SaveEntryResul
       params.weather?.description ?? null,
       params.weather?.temperatureMin ?? null,
       params.weather?.temperatureMax ?? null,
+      params.weather?.symbolName ?? null,
       createdAt,
       now,
       'uncommitted',
@@ -215,9 +218,9 @@ export async function saveEntryRaw(entry: Entry): Promise<void> {
     `INSERT OR REPLACE INTO entries
      (id, date, title, content, location_latitude, location_longitude,
       location_description, location_city, weather_wmo_code, weather_description,
-      weather_temperature_min, weather_temperature_max, created_at, updated_at,
-      sync_status, synced_sha)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      weather_temperature_min, weather_temperature_max, weather_symbol_name,
+      created_at, updated_at, sync_status, synced_sha)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       entry.id,
       entry.date,
@@ -231,6 +234,7 @@ export async function saveEntryRaw(entry: Entry): Promise<void> {
       entry.weather_description,
       entry.weather_temperature_min,
       entry.weather_temperature_max,
+      entry.weather_symbol_name,
       entry.created_at,
       entry.updated_at,
       entry.sync_status,
