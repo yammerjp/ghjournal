@@ -48,6 +48,9 @@ describe('GitHub Sync', () => {
         if (sql.includes("sync_status = 'uncommitted'")) {
           return Array.from(entries.values()).filter(e => e.sync_status === 'uncommitted');
         }
+        if (sql.includes('pending_deletions')) {
+          return [];
+        }
         return Array.from(entries.values());
       }),
       runAsync: jest.fn(async (sql: string, params: unknown[]) => {
