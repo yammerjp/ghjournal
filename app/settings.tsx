@@ -493,7 +493,16 @@ export default function Settings() {
           />
         </View>
         <Text style={styles.note}>
-          日記の日付と位置情報から天気を自動記録します（Open-Meteo使用）
+          日記の日付と位置情報から天気を自動記録します
+        </Text>
+        <Text style={styles.attributionRow}>
+          <Text style={styles.attributionLabel}>Weather data by </Text>
+          <Text
+            style={styles.attributionLink}
+            onPress={() => Linking.openURL("https://open-meteo.com/")}
+          >
+            Open-Meteo.com
+          </Text>
         </Text>
       </View>
 
@@ -567,6 +576,18 @@ const styles = StyleSheet.create({
     color: "#666",
     paddingHorizontal: 16,
     paddingTop: 8,
+  },
+  attributionRow: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    fontSize: 12,
+  },
+  attributionLabel: {
+    color: "#666",
+  },
+  attributionLink: {
+    color: "#007AFF",
+    textDecorationLine: "underline",
   },
   linkRow: {
     flexDirection: "row",

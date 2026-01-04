@@ -93,18 +93,20 @@ export async function getWeather(
     const data: OpenMeteoResponse = await response.json();
 
     if (data.daily && data.daily.weather_code && data.daily.weather_code.length > 0) {
-      const wmoCode = data.daily.weather_code[0];
-      const temperatureMax = Math.round(data.daily.temperature_2m_max[0]);
-      const temperatureMin = Math.round(data.daily.temperature_2m_min[0]);
-      const description = getWeatherDescription(wmoCode);
-      const result: Weather = {
-        wmoCode,
+      const weatherCode = data.daily.weather_code[0];
+      const maxTemp = Math.round(data.daily.temperature_2m_max[0]);
+      const minTemp = Math.round(data.daily.temperature_2m_min[0]);
+      const description = weatherCodeToDescription[weatherCode] ?? `天気コード${weatherCode}`;
+
+      const weather: Weather = {
+        wmoCode: weatherCode,
         description,
-        temperatureMin,
-        temperatureMax,
+        temperatureMin: minTemp,
+        temperatureMax: maxTemp,
       };
-      await debugLog.info('Weather fetch success', JSON.stringify(result));
-      return result;
+
+      await debugLog.info('Weather fetch success', JSON.stringify(weather));
+      return weather;
     }
 
     await debugLog.warn('Weather fetch: no data in response');
