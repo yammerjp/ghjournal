@@ -5,6 +5,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: "ghjournal",
   extra: {
     githubClientId: process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID ?? "",
+    eas: {
+      projectId: "ba26f045-b184-405a-95aa-1058f095f4e0",
+    },
   },
   slug: "ghjournal",
   version: "1.0.0",
@@ -16,6 +19,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: "jp.yammer.ghjournal",
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     package: "jp.yammer.ghjournal",
