@@ -119,7 +119,7 @@ export default function CalendarScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>{t('calendar.title')}</Text>
+          <Text style={styles.headerTitle}>ghjournal</Text>
           {isSyncing && (
             <ActivityIndicator size="small" color="#007AFF" style={styles.syncIndicator} />
           )}
