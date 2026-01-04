@@ -298,9 +298,18 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
     setShowLocationPicker(true);
   }, [dismissKeyboard]);
 
+  // Navigate to home or back
+  const navigateBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  }, [router]);
+
   const handleDelete = () => {
     if (!entryDbId) {
-      router.back();
+      navigateBack();
       return;
     }
 
@@ -311,7 +320,7 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
         style: "destructive",
         onPress: async () => {
           await deleteEntry(entryDbId);
-          router.back();
+          navigateBack();
         },
       },
     ]);
@@ -346,8 +355,8 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
     if (isConnected && userHasEdited) {
       sync();
     }
-    router.back();
-  }, [router, isConnected, userHasEdited, sync]);
+    navigateBack();
+  }, [navigateBack, isConnected, userHasEdited, sync]);
 
   // Header setup
   useLayoutEffect(() => {
