@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { TouchableOpacity, Text, StyleSheet } from "react-native";
+import { useTranslation } from "react-i18next";
 
 const COOLDOWN_MS = 10000;
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function RefreshWeatherButton({ onRefresh, disabled }: Props) {
+  const { t } = useTranslation();
   const [inCooldown, setInCooldown] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,7 +48,7 @@ export default function RefreshWeatherButton({ onRefresh, disabled }: Props) {
       disabled={isDisabled}
     >
       <Text style={[styles.buttonText, isDisabled && styles.buttonTextDisabled]}>
-        再取得
+        {t('entry.refresh')}
       </Text>
     </TouchableOpacity>
   );

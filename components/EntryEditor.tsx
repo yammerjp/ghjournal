@@ -16,6 +16,7 @@ import {
 import { getCharacterIndex } from "../modules/expo-text-cursor/src";
 import { useRouter, useNavigation } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useTranslation } from "react-i18next";
 import { Location, getEntry, deleteEntry } from "../lib/entry";
 import { useSync } from "../contexts/SyncContext";
 import { getCurrentLocation } from "../lib/location";
@@ -41,6 +42,7 @@ interface EntryEditorProps {
 export default function EntryEditor({ entryId }: EntryEditorProps) {
   const router = useRouter();
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const { sync, isConnected } = useSync();
 
   const isNew = entryId === null;
@@ -284,10 +286,10 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
       return;
     }
 
-    Alert.alert("確認", "この日記を削除しますか？", [
-      { text: "キャンセル", style: "cancel" },
+    Alert.alert(t('common.confirm'), t('entry.deleteConfirm'), [
+      { text: t('common.cancel'), style: "cancel" },
       {
-        text: "削除",
+        text: t('common.delete'),
         style: "destructive",
         onPress: async () => {
           await deleteEntry(entryDbId);
@@ -301,7 +303,7 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ["キャンセル", "削除"],
+          options: [t('common.cancel'), t('common.delete')],
           destructiveButtonIndex: 1,
           cancelButtonIndex: 0,
         },
@@ -313,9 +315,9 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
       );
     } else {
       // Android: use Alert as a simple menu
-      Alert.alert("メニュー", undefined, [
-        { text: "キャンセル", style: "cancel" },
-        { text: "削除", style: "destructive", onPress: handleDelete },
+      Alert.alert(t('entry.edit'), undefined, [
+        { text: t('common.cancel'), style: "cancel" },
+        { text: t('common.delete'), style: "destructive", onPress: handleDelete },
       ]);
     }
   };
@@ -331,7 +333,7 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
 
   // Header setup
   useLayoutEffect(() => {
-    const headerTitle = isNew ? "新規作成" : formatDate(date).replace(/-/g, "/");
+    const headerTitle = isNew ? t('entry.new') : formatDate(date).replace(/-/g, "/");
 
     navigation.setOptions({
       title: headerTitle,
@@ -394,7 +396,7 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
         <View style={styles.metaExpanded}>
           {/* Date */}
           <View style={styles.metaField}>
-            <Text style={styles.metaLabel}>日付</Text>
+            <Text style={styles.metaLabel}>{t('entry.date')}</Text>
             <TouchableOpacity
               style={styles.metaInput}
               onPress={openDatePicker}
@@ -405,23 +407,23 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
 
           {/* Location */}
           <View style={styles.metaField}>
-            <Text style={styles.metaLabel}>場所</Text>
+            <Text style={styles.metaLabel}>{t('entry.location')}</Text>
             <TouchableOpacity
               style={styles.metaInput}
               onPress={openLocationPicker}
             >
               <Text style={location ? styles.metaInputText : styles.metaInputTextMuted}>
-                {location?.name || location?.shortName || "タップして選択"}
+                {location?.name || location?.shortName || "-"}
               </Text>
             </TouchableOpacity>
           </View>
 
           {/* Weather */}
           <View style={styles.metaField}>
-            <Text style={styles.metaLabel}>天気</Text>
+            <Text style={styles.metaLabel}>{t('entry.weather')}</Text>
             <View style={styles.weatherDisplay}>
               {isLoadingWeather ? (
-                <Text style={styles.weatherTextMuted}>取得中...</Text>
+                <Text style={styles.weatherTextMuted}>{t('common.loading')}</Text>
               ) : weather ? (
                 <Text style={styles.weatherText}>{weather.description}  {temperature}</Text>
               ) : (
@@ -443,13 +445,13 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
 
           {/* Title */}
           <View style={styles.metaField}>
-            <Text style={styles.metaLabel}>題名</Text>
+            <Text style={styles.metaLabel}>{t('entry.title')}</Text>
             <View style={styles.titleInputContainer}>
               <TextInput
                 style={styles.metaTextInput}
                 value={title}
                 onChangeText={handleTitleChange}
-                placeholder={autoTitle || "本文から自動設定"}
+                placeholder={autoTitle || t('entry.titlePlaceholder')}
                 placeholderTextColor="#999"
               />
               <TouchableOpacity
@@ -466,10 +468,10 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
           {(createdAt || updatedAt) && (
             <View style={styles.timestampsContainer}>
               {createdAt && (
-                <Text style={styles.timestampText}>作成: {formatDateTime(createdAt)}</Text>
+                <Text style={styles.timestampText}>{t('entry.createdAt')}: {formatDateTime(createdAt)}</Text>
               )}
               {updatedAt && (
-                <Text style={styles.timestampText}>更新: {formatDateTime(updatedAt)}</Text>
+                <Text style={styles.timestampText}>{t('entry.updatedAt')}: {formatDateTime(updatedAt)}</Text>
               )}
             </View>
           )}
@@ -505,7 +507,7 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
           onScroll={handleScroll}
           editable={isEditable}
           multiline
-          placeholder="今日あったことを書いてみましょう..."
+          placeholder={t('entry.placeholder')}
           placeholderTextColor="#ccc"
           textAlignVertical="top"
           autoFocus={isNew}
@@ -577,7 +579,7 @@ const styles = StyleSheet.create({
   metaLabel: {
     fontSize: 14,
     color: "#999",
-    width: 40,
+    width: 60,
   },
   metaInput: {
     flex: 1,

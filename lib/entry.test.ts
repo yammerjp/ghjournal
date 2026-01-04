@@ -33,6 +33,7 @@ jest.mock('./migrations/local.json', () => [
       weather_description TEXT,
       weather_temperature_min REAL,
       weather_temperature_max REAL,
+      weather_symbol_name TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       sync_status TEXT NOT NULL DEFAULT 'uncommitted',
@@ -54,6 +55,7 @@ interface EntryRow {
   weather_description: string | null;
   weather_temperature_min: number | null;
   weather_temperature_max: number | null;
+  weather_symbol_name: string | null;
   created_at: string;
   updated_at: string;
   sync_status: 'committed' | 'uncommitted';
@@ -103,10 +105,11 @@ const createMockDb = () => {
           weather_description: params[9] as string | null,
           weather_temperature_min: params[10] as number | null,
           weather_temperature_max: params[11] as number | null,
-          created_at: params[12] as string,
-          updated_at: params[13] as string,
-          sync_status: params[14] as 'committed' | 'uncommitted',
-          synced_sha: params[15] as string | null,
+          weather_symbol_name: params[12] as string | null,
+          created_at: params[13] as string,
+          updated_at: params[14] as string,
+          sync_status: params[15] as 'committed' | 'uncommitted',
+          synced_sha: params[16] as string | null,
         };
         if (existing >= 0) {
           entries[existing] = entry;

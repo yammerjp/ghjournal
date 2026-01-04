@@ -25,7 +25,22 @@
     "new": "New Entry",
     "edit": "Edit",
     "noEntries": "No entries",
-    "untitled": "Untitled"
+    "untitled": "Untitled",
+    "date": "Date",
+    "location": "Location",
+    "weather": "Weather",
+    "title": "Title",
+    "deleteConfirm": "Delete this entry?",
+    "selectDate": "Select date",
+    "selectLocation": "Select location",
+    "noLocationSelected": "No location selected",
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "placeholder": "Write about your day...",
+    "useCurrentLocation": "Current Location",
+    "clear": "Clear",
+    "titlePlaceholder": "Auto-set from content",
+    "refresh": "Refresh"
   },
   "settings": {
     "title": "Settings",

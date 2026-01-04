@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from "react-native";
 import MapView, { Marker, MapPressEvent, Region } from "react-native-maps";
+import { useTranslation } from "react-i18next";
 import { Location } from "../lib/entry";
 import { getCurrentLocation, reverseGeocode } from "../lib/location";
 
@@ -34,6 +35,7 @@ export default function LocationPickerModal({
   onClose,
   onSelect,
 }: LocationPickerModalProps) {
+  const { t } = useTranslation();
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(
     initialLocation
   );
@@ -119,11 +121,11 @@ export default function LocationPickerModal({
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-            <Text style={styles.cancelButtonText}>キャンセル</Text>
+            <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>場所を選択</Text>
+          <Text style={styles.headerTitle}>{t('entry.selectLocation')}</Text>
           <TouchableOpacity onPress={handleDone} style={styles.headerButton}>
-            <Text style={styles.doneButtonText}>完了</Text>
+            <Text style={styles.doneButtonText}>{t('common.done')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -136,7 +138,7 @@ export default function LocationPickerModal({
                 `${selectedLocation.latitude.toFixed(4)}, ${selectedLocation.longitude.toFixed(4)}`}
             </Text>
           ) : (
-            <Text style={styles.locationTextMuted}>場所が選択されていません</Text>
+            <Text style={styles.locationTextMuted}>{t('entry.noLocationSelected')}</Text>
           )}
         </View>
 
@@ -164,14 +166,14 @@ export default function LocationPickerModal({
             onPress={handleUseCurrentLocation}
             disabled={loading}
           >
-            <Text style={styles.actionButtonText}>現在地を使用</Text>
+            <Text style={styles.actionButtonText}>{t('entry.useCurrentLocation')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.actionButton, styles.clearButton]}
+            style={[styles.actionButton, styles.clearButtonStyle]}
             onPress={handleClear}
             disabled={loading}
           >
-            <Text style={styles.clearButtonText}>クリア</Text>
+            <Text style={styles.clearButtonText}>{t('entry.clear')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -246,7 +248,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "600",
   },
-  clearButton: {
+  clearButtonStyle: {
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#FF3B30",

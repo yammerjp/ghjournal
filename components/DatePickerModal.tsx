@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useTranslation } from "react-i18next";
 
 interface DatePickerModalProps {
   visible: boolean;
@@ -21,6 +22,7 @@ export default function DatePickerModal({
   onClose,
   onSelect,
 }: DatePickerModalProps) {
+  const { t, i18n } = useTranslation();
   const [selectedDate, setSelectedDate] = useState<Date>(initialDate);
 
   useEffect(() => {
@@ -48,11 +50,11 @@ export default function DatePickerModal({
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleCancel} style={styles.headerButton}>
-            <Text style={styles.cancelButtonText}>キャンセル</Text>
+            <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>日付を選択</Text>
+          <Text style={styles.headerTitle}>{t('entry.selectDate')}</Text>
           <TouchableOpacity onPress={handleDone} style={styles.headerButton}>
-            <Text style={styles.doneButtonText}>完了</Text>
+            <Text style={styles.doneButtonText}>{t('common.done')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -61,7 +63,7 @@ export default function DatePickerModal({
             value={selectedDate}
             mode="date"
             display="inline"
-            locale="ja-JP"
+            locale={i18n.language === 'ja' ? 'ja-JP' : 'en-US'}
             onChange={(_, date) => {
               if (date) setSelectedDate(date);
             }}

@@ -25,7 +25,22 @@
     "new": "新規作成",
     "edit": "編集",
     "noEntries": "日記がありません",
-    "untitled": "無題"
+    "untitled": "無題",
+    "date": "日付",
+    "location": "場所",
+    "weather": "天気",
+    "title": "題名",
+    "deleteConfirm": "この日記を削除しますか？",
+    "selectDate": "日付を選択",
+    "selectLocation": "場所を選択",
+    "noLocationSelected": "場所が選択されていません",
+    "createdAt": "作成",
+    "updatedAt": "更新",
+    "placeholder": "今日あったことを書いてみましょう...",
+    "useCurrentLocation": "現在地を使用",
+    "clear": "クリア",
+    "titlePlaceholder": "本文から自動設定",
+    "refresh": "再取得"
   },
   "settings": {
     "title": "設定",
