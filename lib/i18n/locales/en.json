@@ -41,6 +41,9 @@
     "placeholder": "Write about your day...",
     "useCurrentLocation": "Current Location",
     "clear": "Clear",
+    "searchPlaceholder": "Enter address or place name",
+    "search": "Search",
+    "locationNotFound": "Location not found",
     "titlePlaceholder": "Auto-set from content",
     "refresh": "Refresh"
   },

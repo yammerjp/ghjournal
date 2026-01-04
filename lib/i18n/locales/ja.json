@@ -41,6 +41,9 @@
     "placeholder": "今日あったことを書いてみましょう...",
     "useCurrentLocation": "現在地を使用",
     "clear": "クリア",
+    "searchPlaceholder": "住所や場所名を入力",
+    "search": "検索",
+    "locationNotFound": "場所が見つかりませんでした",
     "titlePlaceholder": "本文から自動設定",
     "refresh": "再取得"
   },

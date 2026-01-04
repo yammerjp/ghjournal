@@ -47,6 +47,60 @@ export async function reverseGeocode(
   return {};
 }
 
+export async function searchLocations(address: string): Promise<Location[]> {
+  const trimmedAddress = address.trim();
+  if (!trimmedAddress) {
+    return [];
+  }
+
+  try {
+    const locations = await ExpoLocation.geocodeAsync(trimmedAddress);
+
+    if (locations.length === 0) {
+      return [];
+    }
+
+    const results: Location[] = [];
+    for (const loc of locations) {
+      const { name, shortName } = await reverseGeocode(loc.latitude, loc.longitude);
+      results.push({
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        name,
+        shortName,
+      });
+    }
+
+    return results;
+  } catch (error) {
+    console.error('Failed to search locations:', error);
+    return [];
+  }
+}
+
+export async function geocodeAddress(address: string): Promise<Location | null> {
+  const trimmedAddress = address.trim();
+  if (!trimmedAddress) {
+    return null;
+  }
+
+  try {
+    const locations = await ExpoLocation.geocodeAsync(trimmedAddress);
+
+    if (locations.length === 0) {
+      return null;
+    }
+
+    const { latitude, longitude } = locations[0];
+    const { name, shortName } = await reverseGeocode(latitude, longitude);
+
+    return { latitude, longitude, name, shortName };
+  } catch (error) {
+    console.error('Failed to geocode address:', error);
+    return null;
+  }
+}
+
 export async function getCurrentLocation(): Promise<Location | null> {
   try {
     const hasPermission = await requestLocationPermission();
