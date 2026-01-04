@@ -27,10 +27,10 @@ export default function RootLayout() {
     <SyncProvider>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "" }} />
-        <Stack.Screen name="entries/new" options={{ title: t('entry.new'), headerBackTitle: "" }} />
-        <Stack.Screen name="entries/[entryId]" options={{ title: "ghjournal", headerBackTitle: "" }} />
-        <Stack.Screen name="settings" options={{ title: t('settings.title'), headerBackTitle: "" }} />
-        <Stack.Screen name="debug-logs" options={{ title: t('debugLogs.title'), headerBackTitle: "" }} />
+        <Stack.Screen name="entries/new" options={{ title: t('entry.new'), headerBackTitle: t('common.back') }} />
+        <Stack.Screen name="entries/[entryId]" options={{ title: "ghjournal", headerBackTitle: t('common.back') }} />
+        <Stack.Screen name="settings" options={{ title: t('settings.title'), headerBackTitle: t('common.back') }} />
+        <Stack.Screen name="debug-logs" options={{ title: t('debugLogs.title'), headerBackTitle: t('common.back') }} />
       </Stack>
     </SyncProvider>
   );

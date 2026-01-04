@@ -6,7 +6,8 @@
     "done": "Done",
     "error": "Error",
     "loading": "Loading...",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "back": "Back"
   },
   "tabs": {
     "list": "List",
