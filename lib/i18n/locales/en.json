@@ -45,7 +45,12 @@
     "search": "Search",
     "locationNotFound": "Location not found",
     "titlePlaceholder": "Auto-set from content",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "dateConflict": {
+      "title": "Entry already exists",
+      "message": "An entry for {{date}} already exists.",
+      "open": "Open existing entry"
+    }
   },
   "settings": {
     "title": "Settings",

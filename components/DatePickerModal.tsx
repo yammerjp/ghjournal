@@ -64,6 +64,7 @@ export default function DatePickerModal({
             mode="date"
             display="inline"
             locale={i18n.language === 'ja' ? 'ja-JP' : 'en-US'}
+            maximumDate={new Date()}
             onChange={(_, date) => {
               if (date) setSelectedDate(date);
             }}

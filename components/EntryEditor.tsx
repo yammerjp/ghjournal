@@ -17,7 +17,7 @@ import { getCharacterIndex } from "../modules/expo-text-cursor/src";
 import { useRouter, useNavigation } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTranslation } from "react-i18next";
-import { Location, getEntry, deleteEntry } from "../lib/entry";
+import { Location, getEntry, getEntryByDate, deleteEntry } from "../lib/entry";
 import { useSync } from "../contexts/SyncContext";
 import { getCurrentLocation } from "../lib/location";
 import {
@@ -172,7 +172,25 @@ export default function EntryEditor({ entryId }: EntryEditorProps) {
     setUserHasEdited(true);
   };
 
-  const handleDateChange = (newDate: Date) => {
+  const handleDateChange = async (newDate: Date) => {
+    const dateStr = formatDate(newDate);
+    const existingEntry = await getEntryByDate(dateStr);
+
+    if (existingEntry && existingEntry.id !== entryDbId) {
+      Alert.alert(
+        t('entry.dateConflict.title'),
+        t('entry.dateConflict.message', { date: dateStr }),
+        [
+          {
+            text: t('entry.dateConflict.open'),
+            onPress: () => router.replace(`/entries/${existingEntry.id}`),
+          },
+          { text: t('common.cancel'), style: 'cancel' },
+        ]
+      );
+      return;
+    }
+
     setDate(newDate);
     setUserHasEdited(true);
   };

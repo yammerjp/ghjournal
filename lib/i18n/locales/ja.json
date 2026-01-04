@@ -45,7 +45,12 @@
     "search": "検索",
     "locationNotFound": "場所が見つかりませんでした",
     "titlePlaceholder": "本文から自動設定",
-    "refresh": "再取得"
+    "refresh": "再取得",
+    "dateConflict": {
+      "title": "日記が既に存在します",
+      "message": "{{date}}の日記は既に存在します。",
+      "open": "既存の日記を開く"
+    }
   },
   "settings": {
     "title": "設定",
