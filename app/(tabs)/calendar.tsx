@@ -4,6 +4,7 @@ import { useRouter, useNavigation } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { CalendarList, DateData } from "react-native-calendars";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useTranslation } from "react-i18next";
 import { getEntryDates, getEntryByDate } from "../../lib/entry";
 import { useSync } from "../../contexts/SyncContext";
 import { formatDate } from "../../lib/format";
@@ -24,6 +25,7 @@ interface MarkedDates {
 export default function CalendarScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const [entryDates, setEntryDates] = useState<Set<string>>(new Set());
   const { isSyncing, pullIfNeeded } = useSync();
   const today = formatDate(new Date());
@@ -117,7 +119,7 @@ export default function CalendarScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>カレンダー</Text>
+          <Text style={styles.headerTitle}>{t('calendar.title')}</Text>
           {isSyncing && (
             <ActivityIndicator size="small" color="#007AFF" style={styles.syncIndicator} />
           )}
@@ -168,11 +170,11 @@ export default function CalendarScreen() {
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={styles.legendBox} />
-          <Text style={styles.legendText}>日記がある日</Text>
+          <Text style={styles.legendText}>{t('calendar.daysWithEntries')}</Text>
         </View>
         <View style={[styles.legendItem, { marginLeft: 16 }]}>
           <View style={styles.legendTodayBox} />
-          <Text style={styles.legendText}>今日</Text>
+          <Text style={styles.legendText}>{t('calendar.today')}</Text>
         </View>
       </View>
 

@@ -1,0 +1,112 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "done": "Done",
+    "error": "Error",
+    "loading": "Loading...",
+    "confirm": "Confirm"
+  },
+  "tabs": {
+    "list": "List",
+    "calendar": "Calendar"
+  },
+  "weekdays": {
+    "sun": "Sun",
+    "mon": "Mon",
+    "tue": "Tue",
+    "wed": "Wed",
+    "thu": "Thu",
+    "fri": "Fri",
+    "sat": "Sat"
+  },
+  "entry": {
+    "new": "New Entry",
+    "edit": "Edit",
+    "noEntries": "No entries",
+    "untitled": "Untitled"
+  },
+  "settings": {
+    "title": "Settings",
+    "weather": {
+      "title": "Weather",
+      "enable": "Get weather",
+      "description": "Automatically record weather based on date and location"
+    },
+    "location": {
+      "get": "Get location"
+    },
+    "github": {
+      "title": "GitHub Sync",
+      "connect": "Connect to GitHub",
+      "disconnect": "Disconnect",
+      "disconnectConfirm": "Disconnect from GitHub? Local data will not be deleted.",
+      "repository": "Repository",
+      "connectedAt": "Connected at",
+      "syncNow": "Sync now",
+      "syncing": "Syncing...",
+      "syncComplete": "Sync complete",
+      "syncNoChanges": "No changes",
+      "syncError": "Sync failed",
+      "selectRepository": "Select repository",
+      "noRepositories": "A repository is required for sync. Create one and grant access.",
+      "createRepository": "Create new repository",
+      "allowAccess": "Grant repository access",
+      "refreshRepositories": "Refresh repository list",
+      "fetchRepositoriesError": "Failed to fetch repositories",
+      "private": "Private",
+      "public": "Public",
+      "description": "Sync journal entries across devices using a GitHub private repository",
+      "conflictDetected": "Conflict detected",
+      "conflictMessage": "Conflicts found in {{count}} entries ({{dates}}).\n\nWill be overwritten on next sync.",
+      "syncResult": {
+        "fetched": "{{count}} fetched",
+        "updated": "{{count}} updated",
+        "pushed": "{{count}} pushed",
+        "deletedRemote": "{{count}} deleted from remote",
+        "deletedLocal": "{{count}} deleted locally"
+      }
+    },
+    "auth": {
+      "preparing": "Preparing...",
+      "waiting": "Waiting for authentication...",
+      "codeCopied": "✓ Copied",
+      "copyCode": "Auth code (tap to copy)",
+      "copyCodeButton": "Copy code",
+      "openGitHub": "Connect to GitHub",
+      "instruction": "Paste the code on GitHub. When done, tap 'Done' to return to the app.",
+      "instructionCopy": "Copy the code first",
+      "failed": "Authentication failed",
+      "timeout": "Authentication timed out",
+      "cancelled": "Authentication cancelled",
+      "retry": "Retry"
+    },
+    "debug": {
+      "title": "Debug Info",
+      "databaseVersion": "Database version",
+      "logs": "Debug logs"
+    },
+    "data": {
+      "title": "Data Management",
+      "reset": "Reset database",
+      "resetConfirm": "All journal data will be deleted. This cannot be undone.",
+      "resetComplete": "Database reset complete"
+    }
+  },
+  "debugLogs": {
+    "title": "Debug Logs",
+    "deleteAll": "Delete logs",
+    "deleteConfirm": "Delete all logs?",
+    "noLogs": "No logs",
+    "copyAll": "Copy all",
+    "copied": "Copied",
+    "copiedAll": "All logs copied",
+    "copiedOne": "Log copied"
+  },
+  "calendar": {
+    "title": "Calendar",
+    "daysWithEntries": "Days with entries",
+    "today": "Today"
+  }
+}

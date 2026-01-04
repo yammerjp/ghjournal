@@ -3,28 +3,17 @@ import { Text, View, SectionList, TouchableOpacity, StyleSheet, ActivityIndicato
 import { useRouter, useNavigation } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useTranslation } from "react-i18next";
 import { Entry, getEntries } from "../../lib/entry";
 import { useSync } from "../../contexts/SyncContext";
-
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
 const parseDate = (dateStr: string): Date => {
   const [year, month, day] = dateStr.split("-").map(Number);
   return new Date(year, month - 1, day);
 };
 
-const formatYearMonth = (dateStr: string): string => {
-  const [year, month] = dateStr.split("-");
-  return `${year}年${parseInt(month, 10)}月`;
-};
-
 const getDay = (dateStr: string): number => {
   return parseInt(dateStr.split("-")[2], 10);
-};
-
-const getWeekday = (dateStr: string): string => {
-  const date = parseDate(dateStr);
-  return WEEKDAYS[date.getDay()];
 };
 
 interface Section {
@@ -35,9 +24,26 @@ interface Section {
 export default function Index() {
   const router = useRouter();
   const navigation = useNavigation();
+  const { t, i18n } = useTranslation();
   const [entries, setEntries] = useState<Entry[]>([]);
   const { isSyncing, pullIfNeeded, sync, isConnected } = useSync();
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const weekdayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+
+  const getWeekday = (dateStr: string): string => {
+    const date = parseDate(dateStr);
+    return t(`weekdays.${weekdayKeys[date.getDay()]}`);
+  };
+
+  const formatYearMonth = (dateStr: string): string => {
+    const date = parseDate(dateStr);
+    if (i18n.language === 'ja') {
+      const [year, month] = dateStr.split("-");
+      return `${year}年${parseInt(month, 10)}月`;
+    }
+    return date.toLocaleDateString('en', { year: 'numeric', month: 'long' });
+  };
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -163,7 +169,7 @@ export default function Index() {
         renderSectionHeader={renderSectionHeader}
         stickySectionHeadersEnabled={true}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>日記がありません</Text>
+          <Text style={styles.emptyText}>{t('entry.noEntries')}</Text>
         }
         contentContainerStyle={styles.listContent}
         refreshControl={

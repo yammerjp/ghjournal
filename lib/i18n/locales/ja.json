@@ -1,0 +1,112 @@
+{
+  "common": {
+    "cancel": "キャンセル",
+    "save": "保存",
+    "delete": "削除",
+    "done": "完了",
+    "error": "エラー",
+    "loading": "読み込み中...",
+    "confirm": "確認"
+  },
+  "tabs": {
+    "list": "リスト",
+    "calendar": "カレンダー"
+  },
+  "weekdays": {
+    "sun": "日",
+    "mon": "月",
+    "tue": "火",
+    "wed": "水",
+    "thu": "木",
+    "fri": "金",
+    "sat": "土"
+  },
+  "entry": {
+    "new": "新規作成",
+    "edit": "編集",
+    "noEntries": "日記がありません",
+    "untitled": "無題"
+  },
+  "settings": {
+    "title": "設定",
+    "weather": {
+      "title": "天気",
+      "enable": "天気を取得する",
+      "description": "日記の日付と位置情報から天気を自動記録します"
+    },
+    "location": {
+      "get": "位置情報を取得する"
+    },
+    "github": {
+      "title": "GitHub同期",
+      "connect": "GitHubに接続",
+      "disconnect": "連携を解除",
+      "disconnectConfirm": "GitHubとの連携を解除しますか？ローカルのデータは削除されません。",
+      "repository": "リポジトリ",
+      "connectedAt": "接続日時",
+      "syncNow": "今すぐ同期",
+      "syncing": "同期中...",
+      "syncComplete": "同期完了",
+      "syncNoChanges": "変更はありませんでした",
+      "syncError": "同期に失敗しました",
+      "selectRepository": "リポジトリを選択",
+      "noRepositories": "同期用のリポジトリが必要です。まだない場合は作成してから、アクセスを許可してください。",
+      "createRepository": "新しいリポジトリを作成",
+      "allowAccess": "リポジトリへのアクセスを許可",
+      "refreshRepositories": "リポジトリ一覧を更新",
+      "fetchRepositoriesError": "リポジトリ一覧の取得に失敗しました",
+      "private": "プライベート",
+      "public": "パブリック",
+      "description": "GitHubプライベートリポジトリを使って複数デバイス間で日記を同期します",
+      "conflictDetected": "衝突を検知",
+      "conflictMessage": "{{count}}件の日記で衝突が発生しました（{{dates}}）。\n\n次回の同期で上書きされます。",
+      "syncResult": {
+        "fetched": "{{count}}件取得",
+        "updated": "{{count}}件更新",
+        "pushed": "{{count}}件送信",
+        "deletedRemote": "{{count}}件リモート削除",
+        "deletedLocal": "{{count}}件ローカル削除"
+      }
+    },
+    "auth": {
+      "preparing": "準備中...",
+      "waiting": "認証を待っています...",
+      "codeCopied": "✓ コピーしました",
+      "copyCode": "認証コード（タップでコピー）",
+      "copyCodeButton": "コードをコピー",
+      "openGitHub": "GitHubに接続",
+      "instruction": "GitHubで認証コードを貼り付けてください。完了後、左上の「Done」をタップしてアプリに戻ってください。",
+      "instructionCopy": "まず認証コードをコピーしてください",
+      "failed": "認証に失敗しました",
+      "timeout": "認証がタイムアウトしました",
+      "cancelled": "認証がキャンセルされました",
+      "retry": "再試行"
+    },
+    "debug": {
+      "title": "デバッグ情報",
+      "databaseVersion": "データベースバージョン",
+      "logs": "デバッグログ"
+    },
+    "data": {
+      "title": "データ管理",
+      "reset": "データベースをリセット",
+      "resetConfirm": "全ての日記データが削除されます。この操作は取り消せません。",
+      "resetComplete": "データベースをリセットしました"
+    }
+  },
+  "debugLogs": {
+    "title": "デバッグログ",
+    "deleteAll": "ログを削除",
+    "deleteConfirm": "ログを全て削除しますか？",
+    "noLogs": "ログがありません",
+    "copyAll": "全てコピー",
+    "copied": "コピー完了",
+    "copiedAll": "全てのログをコピーしました",
+    "copiedOne": "ログをコピーしました"
+  },
+  "calendar": {
+    "title": "カレンダー",
+    "daysWithEntries": "日記がある日",
+    "today": "今日"
+  }
+}

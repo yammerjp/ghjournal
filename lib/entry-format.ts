@@ -170,6 +170,7 @@ export function markdownToEntry(markdown: string, id: string): Entry {
     weather_description: weather?.description as string | null ?? null,
     weather_temperature_min: weather?.temperature_min as number | null ?? null,
     weather_temperature_max: weather?.temperature_max as number | null ?? null,
+    weather_symbol_name: weather?.symbol_name as string | null ?? null,
     created_at: String(data.created_at ?? ''),
     updated_at: String(data.updated_at ?? ''),
     sync_status: 'committed',

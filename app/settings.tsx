@@ -13,6 +13,7 @@ import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { getDatabaseVersion, resetDatabase } from "../lib/database";
 import { isWeatherEnabled, setWeatherEnabled } from "../lib/secrets";
 import {
@@ -45,6 +46,7 @@ type AuthState =
 
 export default function Settings() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [dbVersion, setDbVersion] = useState<number | null>(null);
   const [weatherEnabled, setWeatherEnabledState] = useState(false);
   const [githubConfig, setGithubConfig] = useState<GitHubConfig | null>(null);
@@ -78,17 +80,17 @@ export default function Settings() {
 
   const handleResetDatabase = () => {
     Alert.alert(
-      "データベースをリセット",
-      "全ての日記データが削除されます。この操作は取り消せません。",
+      t('settings.data.reset'),
+      t('settings.data.resetConfirm'),
       [
-        { text: "キャンセル", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         {
-          text: "リセット",
+          text: t('common.delete'),
           style: "destructive",
           onPress: async () => {
             await resetDatabase();
             await loadData();
-            Alert.alert("完了", "データベースをリセットしました");
+            Alert.alert(t('common.done'), t('settings.data.resetComplete'));
           },
         },
       ]
@@ -113,7 +115,7 @@ export default function Settings() {
     } catch (error) {
       setAuthState({
         type: "error",
-        message: error instanceof Error ? error.message : "認証に失敗しました",
+        message: error instanceof Error ? error.message : t('settings.auth.failed'),
       });
     }
   };
@@ -140,7 +142,7 @@ export default function Settings() {
 
     const poll = async (): Promise<void> => {
       if (Date.now() > expiresAt) {
-        setAuthState({ type: "error", message: "認証がタイムアウトしました" });
+        setAuthState({ type: "error", message: t('settings.auth.timeout') });
         return;
       }
 
@@ -163,7 +165,7 @@ export default function Settings() {
             const repos = await fetchAccessibleRepositories();
             setAvailableRepos(repos);
           } catch (error) {
-            Alert.alert("エラー", "リポジトリ一覧の取得に失敗しました");
+            Alert.alert(t('common.error'), t('settings.github.fetchRepositoriesError'));
           } finally {
             setIsLoadingRepos(false);
           }
@@ -182,20 +184,20 @@ export default function Settings() {
         }
 
         if (response.error === "expired_token") {
-          setAuthState({ type: "error", message: "認証がタイムアウトしました" });
+          setAuthState({ type: "error", message: t('settings.auth.timeout') });
           return;
         }
 
         if (response.error === "access_denied") {
-          setAuthState({ type: "error", message: "認証がキャンセルされました" });
+          setAuthState({ type: "error", message: t('settings.auth.cancelled') });
           return;
         }
 
-        setAuthState({ type: "error", message: response.error_description || "認証に失敗しました" });
+        setAuthState({ type: "error", message: response.error_description || t('settings.auth.failed') });
       } catch (error) {
         setAuthState({
           type: "error",
-          message: error instanceof Error ? error.message : "認証に失敗しました",
+          message: error instanceof Error ? error.message : t('settings.auth.failed'),
         });
       }
     };
@@ -217,7 +219,7 @@ export default function Settings() {
       const repos = await fetchAccessibleRepositories();
       setAvailableRepos(repos);
     } catch (error) {
-      Alert.alert("エラー", "リポジトリ一覧の取得に失敗しました");
+      Alert.alert(t('common.error'), t('settings.github.fetchRepositoriesError'));
     } finally {
       setIsLoadingRepos(false);
     }
@@ -234,12 +236,12 @@ export default function Settings() {
 
   const handleDisconnect = () => {
     Alert.alert(
-      "GitHub連携を解除",
-      "GitHubとの連携を解除しますか？ローカルのデータは削除されません。",
+      t('settings.github.disconnect'),
+      t('settings.github.disconnectConfirm'),
       [
-        { text: "キャンセル", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         {
-          text: "解除",
+          text: t('settings.github.disconnect'),
           style: "destructive",
           onPress: async () => {
             await clearAccessToken();
@@ -273,32 +275,32 @@ export default function Settings() {
       const { pullResult, pushResult } = result;
       const messages: string[] = [];
 
-      if (pullResult.created > 0) messages.push(`${pullResult.created}件取得`);
-      if (pullResult.updated > 0) messages.push(`${pullResult.updated}件更新`);
-      if (pushResult.pushed > 0) messages.push(`${pushResult.pushed}件送信`);
-      if (pushResult.deleted > 0) messages.push(`${pushResult.deleted}件リモート削除`);
-      if (pullResult.deleted > 0) messages.push(`${pullResult.deleted}件ローカル削除`);
+      if (pullResult.created > 0) messages.push(t('settings.github.syncResult.fetched', { count: pullResult.created }));
+      if (pullResult.updated > 0) messages.push(t('settings.github.syncResult.updated', { count: pullResult.updated }));
+      if (pushResult.pushed > 0) messages.push(t('settings.github.syncResult.pushed', { count: pushResult.pushed }));
+      if (pushResult.deleted > 0) messages.push(t('settings.github.syncResult.deletedRemote', { count: pushResult.deleted }));
+      if (pullResult.deleted > 0) messages.push(t('settings.github.syncResult.deletedLocal', { count: pullResult.deleted }));
 
       if (pullResult.conflicts > 0) {
         Alert.alert(
-          "衝突を検知",
-          `${pullResult.conflicts}件の日記で衝突が発生しました（${pullResult.conflictDates.join(", ")}）。\n\n次回の同期で上書きされます。`,
+          t('settings.github.conflictDetected'),
+          t('settings.github.conflictMessage', { count: pullResult.conflicts, dates: pullResult.conflictDates.join(", ") }),
           [{ text: "OK" }]
         );
       } else if (messages.length > 0) {
-        Alert.alert("同期完了", messages.join("、"));
+        Alert.alert(t('settings.github.syncComplete'), messages.join(", "));
       } else {
-        Alert.alert("同期完了", "変更はありませんでした");
+        Alert.alert(t('settings.github.syncComplete'), t('settings.github.syncNoChanges'));
       }
 
       if (!pullResult.success || !pushResult.success) {
         const errors = [...pullResult.errors, ...pushResult.errors];
         if (errors.length > 0) {
-          Alert.alert("エラー", errors.join("\n"));
+          Alert.alert(t('common.error'), errors.join("\n"));
         }
       }
     } catch (error) {
-      Alert.alert("同期エラー", error instanceof Error ? error.message : "同期に失敗しました");
+      Alert.alert(t('settings.github.syncError'), error instanceof Error ? error.message : t('settings.github.syncError'));
     } finally {
       setIsSyncing(false);
     }
@@ -309,16 +311,16 @@ export default function Settings() {
     if (githubConfig?.hasToken && githubConfig?.repository) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>GitHub同期</Text>
+          <Text style={styles.sectionHeader}>{t('settings.github.title')}</Text>
           <View style={styles.row}>
-            <Text style={styles.rowLabel}>リポジトリ</Text>
+            <Text style={styles.rowLabel}>{t('settings.github.repository')}</Text>
             <Text style={styles.rowValue}>{githubConfig.repository}</Text>
           </View>
           {githubConfig.connectedAt && (
             <View style={styles.row}>
-              <Text style={styles.rowLabel}>接続日時</Text>
+              <Text style={styles.rowLabel}>{t('settings.github.connectedAt')}</Text>
               <Text style={styles.rowValue}>
-                {new Date(githubConfig.connectedAt).toLocaleString("ja-JP")}
+                {new Date(githubConfig.connectedAt).toLocaleString()}
               </Text>
             </View>
           )}
@@ -330,14 +332,14 @@ export default function Settings() {
             {isSyncing ? (
               <View style={styles.syncingRow}>
                 <ActivityIndicator size="small" color="#007AFF" />
-                <Text style={[styles.actionText, { marginLeft: 8 }]}>同期中...</Text>
+                <Text style={[styles.actionText, { marginLeft: 8 }]}>{t('settings.github.syncing')}</Text>
               </View>
             ) : (
-              <Text style={styles.actionText}>今すぐ同期</Text>
+              <Text style={styles.actionText}>{t('settings.github.syncNow')}</Text>
             )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.dangerRow} onPress={handleDisconnect}>
-            <Text style={styles.dangerText}>連携を解除</Text>
+            <Text style={styles.dangerText}>{t('settings.github.disconnect')}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -347,31 +349,31 @@ export default function Settings() {
     if (showRepoSelect) {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>GitHub同期</Text>
+          <Text style={styles.sectionHeader}>{t('settings.github.title')}</Text>
           {isLoadingRepos ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator size="small" />
-              <Text style={[styles.rowLabel, { marginLeft: 12 }]}>読み込み中...</Text>
+              <Text style={[styles.rowLabel, { marginLeft: 12 }]}>{t('common.loading')}</Text>
             </View>
           ) : availableRepos.length === 0 ? (
             <>
               <Text style={styles.note}>
-                同期用のリポジトリが必要です。まだない場合は作成してから、アクセスを許可してください。
+                {t('settings.github.noRepositories')}
               </Text>
               <TouchableOpacity style={styles.actionRow} onPress={openNewRepoPage}>
-                <Text style={styles.actionText}>新しいリポジトリを作成</Text>
+                <Text style={styles.actionText}>{t('settings.github.createRepository')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionRow} onPress={openInstallPage}>
-                <Text style={styles.actionText}>リポジトリへのアクセスを許可</Text>
+                <Text style={styles.actionText}>{t('settings.github.allowAccess')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionRow} onPress={reloadRepositories}>
-                <Text style={styles.actionText}>リポジトリ一覧を更新</Text>
+                <Text style={styles.actionText}>{t('settings.github.refreshRepositories')}</Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
               <View style={styles.row}>
-                <Text style={styles.rowLabel}>リポジトリを選択</Text>
+                <Text style={styles.rowLabel}>{t('settings.github.selectRepository')}</Text>
               </View>
               {availableRepos.map((repo) => (
                 <TouchableOpacity
@@ -382,7 +384,7 @@ export default function Settings() {
                   <View>
                     <Text style={styles.repoName}>{repo.full_name}</Text>
                     <Text style={styles.repoMeta}>
-                      {repo.private ? "プライベート" : "パブリック"}
+                      {repo.private ? t('settings.github.private') : t('settings.github.public')}
                     </Text>
                   </View>
                   <Text style={styles.chevron}>›</Text>
@@ -391,7 +393,7 @@ export default function Settings() {
             </>
           )}
           <TouchableOpacity style={styles.secondaryRow} onPress={cancelAuth}>
-            <Text style={styles.secondaryText}>キャンセル</Text>
+            <Text style={styles.secondaryText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -401,15 +403,15 @@ export default function Settings() {
     if (authState.type === "requesting" || authState.type === "polling") {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>GitHub同期</Text>
+          <Text style={styles.sectionHeader}>{t('settings.github.title')}</Text>
           <View style={styles.row}>
             <ActivityIndicator size="small" />
             <Text style={[styles.rowLabel, { marginLeft: 12 }]}>
-              {authState.type === "requesting" ? "準備中..." : "認証を待っています..."}
+              {authState.type === "requesting" ? t('settings.auth.preparing') : t('settings.auth.waiting')}
             </Text>
           </View>
           <TouchableOpacity style={styles.secondaryRow} onPress={cancelAuth}>
-            <Text style={styles.secondaryText}>キャンセル</Text>
+            <Text style={styles.secondaryText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -418,34 +420,34 @@ export default function Settings() {
     if (authState.type === "waiting_for_user") {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>GitHub同期</Text>
+          <Text style={styles.sectionHeader}>{t('settings.github.title')}</Text>
           <TouchableOpacity style={styles.codeBox} onPress={copyUserCode}>
             <Text style={styles.codeLabel}>
-              {isCodeCopied ? "✓ コピーしました" : "認証コード（タップでコピー）"}
+              {isCodeCopied ? t('settings.auth.codeCopied') : t('settings.auth.copyCode')}
             </Text>
             <Text style={styles.codeValue}>{authState.userCode}</Text>
           </TouchableOpacity>
           {isCodeCopied ? (
             <>
               <TouchableOpacity style={styles.actionRow} onPress={openVerificationUrl}>
-                <Text style={styles.actionText}>GitHubに接続</Text>
+                <Text style={styles.actionText}>{t('settings.auth.openGitHub')}</Text>
               </TouchableOpacity>
               <Text style={styles.note}>
-                GitHubで認証コードを貼り付けてください。完了後、左上の「Done」をタップしてアプリに戻ってください。
+                {t('settings.auth.instruction')}
               </Text>
             </>
           ) : (
             <>
               <TouchableOpacity style={styles.actionRow} onPress={copyUserCode}>
-                <Text style={styles.actionText}>コードをコピー</Text>
+                <Text style={styles.actionText}>{t('settings.auth.copyCodeButton')}</Text>
               </TouchableOpacity>
               <Text style={styles.note}>
-                まず認証コードをコピーしてください
+                {t('settings.auth.instructionCopy')}
               </Text>
             </>
           )}
           <TouchableOpacity style={styles.secondaryRow} onPress={cancelAuth}>
-            <Text style={styles.secondaryText}>キャンセル</Text>
+            <Text style={styles.secondaryText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -454,14 +456,14 @@ export default function Settings() {
     if (authState.type === "error") {
       return (
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>GitHub同期</Text>
+          <Text style={styles.sectionHeader}>{t('settings.github.title')}</Text>
           <View style={styles.row}>
             <Text style={[styles.rowLabel, { color: "#FF3B30" }]}>
-              エラー: {authState.message}
+              {t('common.error')}: {authState.message}
             </Text>
           </View>
           <TouchableOpacity style={styles.actionRow} onPress={startGitHubAuth}>
-            <Text style={styles.actionText}>再試行</Text>
+            <Text style={styles.actionText}>{t('settings.auth.retry')}</Text>
           </TouchableOpacity>
         </View>
       );
@@ -470,12 +472,12 @@ export default function Settings() {
     // Not connected (idle)
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionHeader}>GitHub同期</Text>
+        <Text style={styles.sectionHeader}>{t('settings.github.title')}</Text>
         <TouchableOpacity style={styles.actionRow} onPress={startGitHubAuth}>
-          <Text style={styles.actionText}>GitHubに接続</Text>
+          <Text style={styles.actionText}>{t('settings.github.connect')}</Text>
         </TouchableOpacity>
         <Text style={styles.note}>
-          GitHubプライベートリポジトリを使って複数デバイス間で日記を同期します
+          {t('settings.github.description')}
         </Text>
       </View>
     );
@@ -484,16 +486,16 @@ export default function Settings() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.section}>
-        <Text style={styles.sectionHeader}>天気</Text>
+        <Text style={styles.sectionHeader}>{t('settings.weather.title')}</Text>
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>天気を取得する</Text>
+          <Text style={styles.rowLabel}>{t('settings.weather.enable')}</Text>
           <Switch
             value={weatherEnabled}
             onValueChange={handleWeatherToggle}
           />
         </View>
         <Text style={styles.note}>
-          日記の日付と位置情報から天気を自動記録します
+          {t('settings.weather.description')}
         </Text>
         <Text style={styles.attributionRow}>
           <Text style={styles.attributionLabel}>Weather data by </Text>
@@ -509,29 +511,29 @@ export default function Settings() {
       {renderGitHubSection()}
 
       <View style={styles.section}>
-        <Text style={styles.sectionHeader}>デバッグ情報</Text>
+        <Text style={styles.sectionHeader}>{t('settings.debug.title')}</Text>
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>データベースバージョン</Text>
+          <Text style={styles.rowLabel}>{t('settings.debug.databaseVersion')}</Text>
           <Text style={styles.rowValue}>
-            {dbVersion !== null ? `v${dbVersion}` : "読み込み中..."}
+            {dbVersion !== null ? `v${dbVersion}` : t('common.loading')}
           </Text>
         </View>
         <TouchableOpacity
           style={styles.linkRow}
           onPress={() => router.push("/debug-logs")}
         >
-          <Text style={styles.rowLabel}>デバッグログ</Text>
+          <Text style={styles.rowLabel}>{t('settings.debug.logs')}</Text>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionHeader}>データ管理</Text>
+        <Text style={styles.sectionHeader}>{t('settings.data.title')}</Text>
         <TouchableOpacity
           style={styles.dangerRow}
           onPress={handleResetDatabase}
         >
-          <Text style={styles.dangerText}>データベースをリセット</Text>
+          <Text style={styles.dangerText}>{t('settings.data.reset')}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>

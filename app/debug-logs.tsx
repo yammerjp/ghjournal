@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { useFocusEffect } from "@react-navigation/native";
+import { useTranslation } from "react-i18next";
 import { DebugLogEntry, getDebugLogs, clearDebugLogs } from "../lib/debug-log";
 
 const formatLogForCopy = (log: DebugLogEntry): string => {
@@ -20,6 +21,7 @@ const formatLogForCopy = (log: DebugLogEntry): string => {
 };
 
 export default function DebugLogs() {
+  const { t } = useTranslation();
   const [logs, setLogs] = useState<DebugLogEntry[]>([]);
 
   useFocusEffect(
@@ -34,10 +36,10 @@ export default function DebugLogs() {
   };
 
   const handleClear = () => {
-    Alert.alert("確認", "ログを全て削除しますか？", [
-      { text: "キャンセル", style: "cancel" },
+    Alert.alert(t('common.confirm'), t('debugLogs.deleteConfirm'), [
+      { text: t('common.cancel'), style: "cancel" },
       {
-        text: "削除",
+        text: t('common.delete'),
         style: "destructive",
         onPress: async () => {
           await clearDebugLogs();
@@ -50,18 +52,18 @@ export default function DebugLogs() {
   const handleCopyAll = async () => {
     const text = logs.map(formatLogForCopy).join("\n\n");
     await Clipboard.setStringAsync(text);
-    Alert.alert("コピー完了", "全てのログをコピーしました");
+    Alert.alert(t('debugLogs.copied'), t('debugLogs.copiedAll'));
   };
 
   const handleCopyLog = async (log: DebugLogEntry) => {
     const text = formatLogForCopy(log);
     await Clipboard.setStringAsync(text);
-    Alert.alert("コピー完了", "ログをコピーしました");
+    Alert.alert(t('debugLogs.copied'), t('debugLogs.copiedOne'));
   };
 
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
-    return date.toLocaleString("ja-JP", {
+    return date.toLocaleString(undefined, {
       month: "2-digit",
       day: "2-digit",
       hour: "2-digit",
@@ -102,10 +104,10 @@ export default function DebugLogs() {
       {logs.length > 0 && (
         <View style={styles.buttonRow}>
           <TouchableOpacity style={styles.copyButton} onPress={handleCopyAll}>
-            <Text style={styles.copyButtonText}>全てコピー</Text>
+            <Text style={styles.copyButtonText}>{t('debugLogs.copyAll')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
-            <Text style={styles.clearButtonText}>ログを削除</Text>
+            <Text style={styles.clearButtonText}>{t('debugLogs.deleteAll')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -114,7 +116,7 @@ export default function DebugLogs() {
         keyExtractor={(item, index) => `${item.timestamp}-${index}`}
         renderItem={renderItem}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>ログがありません</Text>
+          <Text style={styles.emptyText}>{t('debugLogs.noLogs')}</Text>
         }
         contentContainerStyle={logs.length === 0 ? styles.emptyContainer : undefined}
       />
