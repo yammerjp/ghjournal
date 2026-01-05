@@ -34,7 +34,7 @@ import { syncEntries, SyncResult } from "../lib/github-sync";
 const GITHUB_CLIENT_ID = process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID ?? "";
 const GITHUB_APP_NAME = process.env.EXPO_PUBLIC_GITHUB_APP_NAME ?? "";
 const GITHUB_APP_INSTALL_URL = `https://github.com/apps/${GITHUB_APP_NAME}/installations/new`;
-const GITHUB_NEW_REPO_URL = "https://github.com/new?name=journal&visibility=private&owner=@me&description=ghjournal%E3%81%AE%E6%97%A5%E8%A8%98%E3%83%87%E3%83%BC%E3%82%BF";
+const GITHUB_NEW_REPO_URL = "https://github.com/new?name=journal&visibility=private&owner=@me&description=My%20journal%20entries%20with%20ghjournal";
 
 type AuthState =
   | { type: "idle" }
@@ -390,6 +390,19 @@ export default function Settings() {
                   <Text style={styles.chevron}>›</Text>
                 </TouchableOpacity>
               ))}
+              <Text style={styles.repoActions}>
+                <Text style={styles.attributionLink} onPress={openNewRepoPage}>
+                  {t('settings.github.createRepository')}
+                </Text>
+                <Text style={styles.repoActionSeparator}> / </Text>
+                <Text style={styles.attributionLink} onPress={openInstallPage}>
+                  {t('settings.github.addMoreAccess')}
+                </Text>
+                <Text style={styles.repoActionSeparator}> / </Text>
+                <Text style={styles.attributionLink} onPress={reloadRepositories}>
+                  {t('settings.github.refreshRepositories')}
+                </Text>
+              </Text>
             </>
           )}
           <TouchableOpacity style={styles.secondaryRow} onPress={cancelAuth}>
@@ -590,6 +603,16 @@ const styles = StyleSheet.create({
   attributionLink: {
     color: "#007AFF",
     textDecorationLine: "underline",
+  },
+  repoActions: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 13,
+    color: "#666",
+    textAlign: "center",
+  },
+  repoActionSeparator: {
+    color: "#666",
   },
   linkRow: {
     flexDirection: "row",

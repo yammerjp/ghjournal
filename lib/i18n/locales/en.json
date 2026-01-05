@@ -78,6 +78,7 @@
       "noRepositories": "A repository is required for sync. Create one and grant access.",
       "createRepository": "Create new repository",
       "allowAccess": "Grant repository access",
+      "addMoreAccess": "Add access to other repositories",
       "refreshRepositories": "Refresh repository list",
       "fetchRepositoriesError": "Failed to fetch repositories",
       "private": "Private",

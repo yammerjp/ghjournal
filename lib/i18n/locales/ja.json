@@ -78,6 +78,7 @@
       "noRepositories": "同期用のリポジトリが必要です。まだない場合は作成してから、アクセスを許可してください。",
       "createRepository": "新しいリポジトリを作成",
       "allowAccess": "リポジトリへのアクセスを許可",
+      "addMoreAccess": "他のリポジトリへのアクセスを追加",
       "refreshRepositories": "リポジトリ一覧を更新",
       "fetchRepositoriesError": "リポジトリ一覧の取得に失敗しました",
       "private": "プライベート",
