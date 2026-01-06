@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Clipboard from "expo-clipboard";
 import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
@@ -372,8 +373,11 @@ export default function Settings() {
             </>
           ) : (
             <>
-              <View style={styles.row}>
+              <View style={styles.rowWithAction}>
                 <Text style={styles.rowLabel}>{t('settings.github.selectRepository')}</Text>
+                <TouchableOpacity onPress={reloadRepositories} style={styles.reloadButton}>
+                  <Ionicons name="refresh" size={20} color="#007AFF" />
+                </TouchableOpacity>
               </View>
               {availableRepos.map((repo) => (
                 <TouchableOpacity
@@ -390,19 +394,14 @@ export default function Settings() {
                   <Text style={styles.chevron}>›</Text>
                 </TouchableOpacity>
               ))}
-              <Text style={styles.repoActions}>
+              <View style={styles.repoActions}>
                 <Text style={styles.attributionLink} onPress={openNewRepoPage}>
                   {t('settings.github.createRepository')}
                 </Text>
-                <Text style={styles.repoActionSeparator}> / </Text>
                 <Text style={styles.attributionLink} onPress={openInstallPage}>
                   {t('settings.github.addMoreAccess')}
                 </Text>
-                <Text style={styles.repoActionSeparator}> / </Text>
-                <Text style={styles.attributionLink} onPress={reloadRepositories}>
-                  {t('settings.github.refreshRepositories')}
-                </Text>
-              </Text>
+              </View>
             </>
           )}
           <TouchableOpacity style={styles.secondaryRow} onPress={cancelAuth}>
@@ -607,12 +606,23 @@ const styles = StyleSheet.create({
   repoActions: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    fontSize: 13,
-    color: "#666",
-    textAlign: "center",
+    gap: 8,
+    alignItems: "center",
   },
-  repoActionSeparator: {
-    color: "#666",
+  rowWithAction: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    paddingLeft: 16,
+    paddingRight: 8,
+    paddingVertical: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: "#c6c6c8",
+  },
+  reloadButton: {
+    padding: 8,
   },
   linkRow: {
     flexDirection: "row",
