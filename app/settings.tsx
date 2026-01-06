@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Text,
   View,
@@ -15,7 +15,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { getDatabaseVersion, resetDatabase } from "../lib/database";
+import { resetDatabase } from "../lib/database";
 import { isWeatherEnabled, setWeatherEnabled } from "../lib/secrets";
 import {
   getGitHubConfig,
@@ -48,7 +48,6 @@ type AuthState =
 export default function Settings() {
   const router = useRouter();
   const { t } = useTranslation();
-  const [dbVersion, setDbVersion] = useState<number | null>(null);
   const [weatherEnabled, setWeatherEnabledState] = useState(false);
   const [githubConfig, setGithubConfig] = useState<GitHubConfig | null>(null);
   const [authState, setAuthState] = useState<AuthState>({ type: "idle" });
@@ -58,14 +57,29 @@ export default function Settings() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncResult, setLastSyncResult] = useState<SyncResult | null>(null);
   const [isCodeCopied, setIsCodeCopied] = useState(false);
+  const versionTapCount = useRef(0);
+  const versionTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleVersionTap = () => {
+    versionTapCount.current += 1;
+    if (versionTapTimer.current) {
+      clearTimeout(versionTapTimer.current);
+    }
+    if (versionTapCount.current >= 3) {
+      versionTapCount.current = 0;
+      router.push("/developer");
+    } else {
+      versionTapTimer.current = setTimeout(() => {
+        versionTapCount.current = 0;
+      }, 500);
+    }
+  };
 
   const loadData = useCallback(async () => {
-    const [version, enabled, config] = await Promise.all([
-      getDatabaseVersion(),
+    const [enabled, config] = await Promise.all([
       isWeatherEnabled(),
       getGitHubConfig(),
     ]);
-    setDbVersion(version);
     setWeatherEnabledState(enabled);
     setGithubConfig(config);
   }, []);
@@ -81,8 +95,8 @@ export default function Settings() {
 
   const handleResetDatabase = () => {
     Alert.alert(
-      t('settings.data.reset'),
-      t('settings.data.resetConfirm'),
+      t('settings.data.deleteAll'),
+      t('settings.data.deleteConfirm'),
       [
         { text: t('common.cancel'), style: "cancel" },
         {
@@ -91,7 +105,7 @@ export default function Settings() {
           onPress: async () => {
             await resetDatabase();
             await loadData();
-            Alert.alert(t('common.done'), t('settings.data.resetComplete'));
+            Alert.alert(t('common.done'), t('settings.data.deleteComplete'));
           },
         },
       ]
@@ -523,31 +537,22 @@ export default function Settings() {
       {renderGitHubSection()}
 
       <View style={styles.section}>
-        <Text style={styles.sectionHeader}>{t('settings.debug.title')}</Text>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>{t('settings.debug.databaseVersion')}</Text>
-          <Text style={styles.rowValue}>
-            {dbVersion !== null ? `v${dbVersion}` : t('common.loading')}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={styles.linkRow}
-          onPress={() => router.push("/debug-logs")}
-        >
-          <Text style={styles.rowLabel}>{t('settings.debug.logs')}</Text>
-          <Text style={styles.chevron}>›</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.section}>
         <Text style={styles.sectionHeader}>{t('settings.data.title')}</Text>
         <TouchableOpacity
           style={styles.dangerRow}
           onPress={handleResetDatabase}
         >
-          <Text style={styles.dangerText}>{t('settings.data.reset')}</Text>
+          <Text style={styles.dangerText}>{t('settings.data.deleteAll')}</Text>
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity
+        style={styles.versionContainer}
+        onPress={handleVersionTap}
+        activeOpacity={1}
+      >
+        <Text style={styles.versionText}>ghjournal v1.0.0</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -608,6 +613,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8,
     alignItems: "center",
+  },
+  versionContainer: {
+    paddingVertical: 24,
+    alignItems: "center",
+  },
+  versionText: {
+    fontSize: 13,
+    color: "#999",
   },
   rowWithAction: {
     flexDirection: "row",

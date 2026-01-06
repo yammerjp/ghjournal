@@ -32,6 +32,7 @@ export default function RootLayout() {
         <Stack.Screen name="entries/[entryId]" options={{ title: "ghjournal", headerBackTitle: t('common.back') }} />
         <Stack.Screen name="settings" options={{ title: t('settings.title'), headerBackTitle: t('common.back') }} />
         <Stack.Screen name="debug-logs" options={{ title: t('debugLogs.title'), headerBackTitle: t('common.back') }} />
+        <Stack.Screen name="developer" options={{ title: t('settings.developer.title'), headerBackTitle: t('common.back') }} />
       </Stack>
     </SyncProvider>
   );

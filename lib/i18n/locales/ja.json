@@ -108,16 +108,16 @@
       "cancelled": "認証がキャンセルされました",
       "retry": "再試行"
     },
-    "debug": {
-      "title": "デバッグ情報",
+    "data": {
+      "title": "端末内のデータ",
+      "deleteAll": "すべて削除",
+      "deleteConfirm": "端末内のすべての日記データが削除されます。この操作は取り消せません。",
+      "deleteComplete": "データを削除しました"
+    },
+    "developer": {
+      "title": "デベロッパ",
       "databaseVersion": "データベースバージョン",
       "logs": "デバッグログ"
-    },
-    "data": {
-      "title": "データ管理",
-      "reset": "データベースをリセット",
-      "resetConfirm": "全ての日記データが削除されます。この操作は取り消せません。",
-      "resetComplete": "データベースをリセットしました"
     }
   },
   "debugLogs": {

@@ -108,16 +108,16 @@
       "cancelled": "Authentication cancelled",
       "retry": "Retry"
     },
-    "debug": {
-      "title": "Debug Info",
+    "data": {
+      "title": "Local Data",
+      "deleteAll": "Delete all",
+      "deleteConfirm": "All journal data on this device will be deleted. This cannot be undone.",
+      "deleteComplete": "Data deleted"
+    },
+    "developer": {
+      "title": "Developer",
       "databaseVersion": "Database version",
       "logs": "Debug logs"
-    },
-    "data": {
-      "title": "Data Management",
-      "reset": "Reset database",
-      "resetConfirm": "All journal data will be deleted. This cannot be undone.",
-      "resetComplete": "Database reset complete"
     }
   },
   "debugLogs": {
