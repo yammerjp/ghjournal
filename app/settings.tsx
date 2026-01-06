@@ -221,6 +221,27 @@ export default function Settings() {
   };
 
   const handleSelectRepository = async (repo: GitHubRepository) => {
+    if (!repo.private) {
+      Alert.alert(
+        t('settings.github.publicRepoWarning.title'),
+        t('settings.github.publicRepoWarning.message'),
+        [
+          { text: t('common.cancel'), style: "cancel" },
+          {
+            text: t('settings.github.publicRepoWarning.confirm'),
+            style: "destructive",
+            onPress: async () => {
+              await setRepository(repo.full_name, repo.private);
+              setShowRepoSelect(false);
+              setAvailableRepos([]);
+              setAuthState({ type: "idle" });
+              await loadData();
+            },
+          },
+        ]
+      );
+      return;
+    }
     await setRepository(repo.full_name, repo.private);
     setShowRepoSelect(false);
     setAvailableRepos([]);

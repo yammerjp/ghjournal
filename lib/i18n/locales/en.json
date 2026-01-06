@@ -83,6 +83,11 @@
       "fetchRepositoriesError": "Failed to fetch repositories",
       "private": "Private",
       "public": "Public",
+      "publicRepoWarning": {
+        "title": "Public Repository",
+        "message": "This repository is public. Your journal entries will be visible to anyone.",
+        "confirm": "Use Anyway"
+      },
       "description": "Sync journal entries across devices using a GitHub private repository",
       "conflictDetected": "Conflict detected",
       "conflictMessage": "Conflicts found in {{count}} entries ({{dates}}).\n\nWill be overwritten on next sync.",
@@ -109,7 +114,7 @@
       "retry": "Retry"
     },
     "data": {
-      "title": "Local Data",
+      "title": "Data on This Device",
       "deleteAll": "Delete all",
       "deleteConfirm": "All journal data on this device will be deleted. This cannot be undone.",
       "deleteComplete": "Data deleted"

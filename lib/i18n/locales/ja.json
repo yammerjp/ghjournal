@@ -66,7 +66,7 @@
       "title": "GitHub同期",
       "connect": "GitHubに接続",
       "disconnect": "連携を解除",
-      "disconnectConfirm": "GitHubとの連携を解除しますか？ローカルのデータは削除されません。",
+      "disconnectConfirm": "GitHubとの連携を解除しますか？端末内のデータは削除されません。",
       "repository": "リポジトリ",
       "connectedAt": "接続日時",
       "syncNow": "今すぐ同期",
@@ -83,6 +83,11 @@
       "fetchRepositoriesError": "リポジトリ一覧の取得に失敗しました",
       "private": "プライベート",
       "public": "パブリック",
+      "publicRepoWarning": {
+        "title": "パブリックリポジトリです",
+        "message": "このリポジトリは公開されています。日記の内容が誰でも閲覧可能になります。",
+        "confirm": "このまま使用"
+      },
       "description": "GitHubプライベートリポジトリを使って複数デバイス間で日記を同期します",
       "conflictDetected": "衝突を検知",
       "conflictMessage": "{{count}}件の日記で衝突が発生しました（{{dates}}）。\n\n次回の同期で上書きされます。",
@@ -91,7 +96,7 @@
         "updated": "{{count}}件更新",
         "pushed": "{{count}}件送信",
         "deletedRemote": "{{count}}件リモート削除",
-        "deletedLocal": "{{count}}件ローカル削除"
+        "deletedLocal": "{{count}}件を端末から削除"
       }
     },
     "auth": {
@@ -123,11 +128,11 @@
   "debugLogs": {
     "title": "デバッグログ",
     "deleteAll": "ログを削除",
-    "deleteConfirm": "ログを全て削除しますか？",
+    "deleteConfirm": "ログをすべて削除しますか？",
     "noLogs": "ログがありません",
-    "copyAll": "全てコピー",
+    "copyAll": "すべてコピー",
     "copied": "コピー完了",
-    "copiedAll": "全てのログをコピーしました",
+    "copiedAll": "すべてのログをコピーしました",
     "copiedOne": "ログをコピーしました"
   },
   "calendar": {
