@@ -39,6 +39,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     "expo-router",
+    "react-native-legal",
     [
       "expo-splash-screen",
       {

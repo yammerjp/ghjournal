@@ -54,6 +54,11 @@
   },
   "settings": {
     "title": "設定",
+    "licenses": "ライセンス",
+    "about": {
+      "title": "このアプリについて",
+      "version": "バージョン"
+    },
     "weather": {
       "title": "天気",
       "enable": "天気を取得する",

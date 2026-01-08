@@ -54,6 +54,11 @@
   },
   "settings": {
     "title": "Settings",
+    "licenses": "Licenses",
+    "about": {
+      "title": "About This App",
+      "version": "Version"
+    },
     "weather": {
       "title": "Weather",
       "enable": "Get weather",

@@ -31,6 +31,7 @@ import {
   GitHubRepository,
 } from "../lib/github-auth";
 import { syncEntries, SyncResult } from "../lib/github-sync";
+import { ReactNativeLegal } from "react-native-legal";
 
 const GITHUB_CLIENT_ID = process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID ?? "";
 const GITHUB_APP_NAME = process.env.EXPO_PUBLIC_GITHUB_APP_NAME ?? "";
@@ -558,6 +559,25 @@ export default function Settings() {
       {renderGitHubSection()}
 
       <View style={styles.section}>
+        <Text style={styles.sectionHeader}>{t('settings.about.title')}</Text>
+        <TouchableOpacity
+          style={styles.linkRow}
+          onPress={() => ReactNativeLegal.launchLicenseListScreen(t('settings.licenses'))}
+        >
+          <Text style={styles.rowLabel}>{t('settings.licenses')}</Text>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.row}
+          onPress={handleVersionTap}
+          activeOpacity={1}
+        >
+          <Text style={styles.rowLabel}>{t('settings.about.version')}</Text>
+          <Text style={styles.rowValue}>1.0.0</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionHeader}>{t('settings.data.title')}</Text>
         <TouchableOpacity
           style={styles.dangerRow}
@@ -566,14 +586,6 @@ export default function Settings() {
           <Text style={styles.dangerText}>{t('settings.data.deleteAll')}</Text>
         </TouchableOpacity>
       </View>
-
-      <TouchableOpacity
-        style={styles.versionContainer}
-        onPress={handleVersionTap}
-        activeOpacity={1}
-      >
-        <Text style={styles.versionText}>ghjournal v1.0.0</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
