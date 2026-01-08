@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
 import { getGitHubConfig } from '../lib/github-auth';
 import { syncEntries, SyncResult } from '../lib/github-sync';
 import { getDatabase } from '../lib/database';
+import { SyncLock } from '../lib/sync-lock';
 
 const LAST_SYNC_KEY = 'last_sync_at';
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
@@ -18,6 +19,9 @@ interface SyncContextType {
 }
 
 const SyncContext = createContext<SyncContextType | null>(null);
+
+// Global sync lock instance to ensure only one sync runs at a time
+const globalSyncLock = new SyncLock();
 
 export function SyncProvider({ children }: { children: ReactNode }) {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -54,25 +58,25 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sync = useCallback(async (): Promise<SyncResult | null> => {
-    if (isSyncing) return null;
+    return await globalSyncLock.withLock(async () => {
+      const config = await getGitHubConfig();
+      if (!config.hasToken || !config.repository) {
+        return null;
+      }
 
-    const config = await getGitHubConfig();
-    if (!config.hasToken || !config.repository) {
-      return null;
-    }
-
-    setIsSyncing(true);
-    try {
-      const result = await syncEntries();
-      await saveLastSyncAt(Date.now());
-      return result;
-    } catch (error) {
-      console.error('Sync failed:', error);
-      return null;
-    } finally {
-      setIsSyncing(false);
-    }
-  }, [isSyncing, saveLastSyncAt]);
+      setIsSyncing(true);
+      try {
+        const result = await syncEntries();
+        await saveLastSyncAt(Date.now());
+        return result;
+      } catch (error) {
+        console.error('Sync failed:', error);
+        return null;
+      } finally {
+        setIsSyncing(false);
+      }
+    });
+  }, [saveLastSyncAt]);
 
   const pullIfNeeded = useCallback(async () => {
     await loadLastSyncAt();
