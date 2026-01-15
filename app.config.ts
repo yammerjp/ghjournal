@@ -56,6 +56,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "@react-native-community/datetimepicker",
     "expo-secure-store",
     "expo-localization",
+    [
+      "expo-location",
+      {
+        locationWhenInUsePermission:
+          "Your location is used to record your current location in diary entries and to fetch weather information for that location. Location data is saved as part of your diary entry.",
+        locationAlwaysAndWhenInUsePermission:
+          "Your location is used to record your current location in diary entries and to fetch weather information for that location. Location data is saved as part of your diary entry.",
+        locationAlwaysPermission:
+          "Your location is used to record your current location in diary entries and to fetch weather information for that location. Location data is saved as part of your diary entry.",
+        isIosBackgroundLocationEnabled: false,
+        isAndroidBackgroundLocationEnabled: false,
+      },
+    ],
+    "./plugins/withInfoPlistLocalization.js",
   ],
   experiments: {
     typedRoutes: true,
