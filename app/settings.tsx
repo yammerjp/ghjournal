@@ -318,6 +318,15 @@ export default function Settings() {
       if (pushResult.deleted > 0) messages.push(t('settings.github.syncResult.deletedRemote', { count: pushResult.deleted }));
       if (pullResult.deleted > 0) messages.push(t('settings.github.syncResult.deletedLocal', { count: pullResult.deleted }));
 
+      // Check for errors first - don't show "sync complete" if there are errors
+      if (!pullResult.success || !pushResult.success) {
+        const errors = [...pullResult.errors, ...pushResult.errors];
+        if (errors.length > 0) {
+          Alert.alert(t('settings.github.syncError'), errors.join("\n"));
+          return;
+        }
+      }
+
       if (pullResult.conflicts > 0) {
         Alert.alert(
           t('settings.github.conflictDetected'),
@@ -328,13 +337,6 @@ export default function Settings() {
         Alert.alert(t('settings.github.syncComplete'), messages.join(", "));
       } else {
         Alert.alert(t('settings.github.syncComplete'), t('settings.github.syncNoChanges'));
-      }
-
-      if (!pullResult.success || !pushResult.success) {
-        const errors = [...pullResult.errors, ...pushResult.errors];
-        if (errors.length > 0) {
-          Alert.alert(t('common.error'), errors.join("\n"));
-        }
       }
     } catch (error) {
       Alert.alert(t('settings.github.syncError'), error instanceof Error ? error.message : t('settings.github.syncError'));

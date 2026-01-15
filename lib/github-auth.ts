@@ -131,8 +131,9 @@ export async function clearAccessToken(): Promise<void> {
   await SecureStore.deleteItemAsync(SECURE_STORE_KEY_TOKEN_EXPIRES_AT);
 }
 
-async function refreshAccessToken(): Promise<boolean> {
+export async function refreshAccessToken(): Promise<boolean> {
   const refreshToken = await SecureStore.getItemAsync(SECURE_STORE_KEY_REFRESH_TOKEN);
+
   if (!refreshToken || !GITHUB_CLIENT_ID) {
     return false;
   }
@@ -156,6 +157,7 @@ async function refreshAccessToken(): Promise<boolean> {
     }
 
     const data = await response.json();
+
     if (isAccessTokenSuccess(data)) {
       await setAccessToken(data.access_token, data.expires_in, data.refresh_token);
       return true;

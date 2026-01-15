@@ -13,12 +13,14 @@ import { Entry } from './entry';
 jest.mock('./github-auth', () => ({
   getAccessToken: jest.fn(),
   getRepository: jest.fn(),
+  refreshAccessToken: jest.fn(),
 }));
 
-import { getAccessToken, getRepository } from './github-auth';
+import { getAccessToken, getRepository, refreshAccessToken } from './github-auth';
 
 const mockGetAccessToken = getAccessToken as jest.Mock;
 const mockGetRepository = getRepository as jest.Mock;
+const mockRefreshAccessToken = refreshAccessToken as jest.Mock;
 
 // Mock fetch
 const mockFetch = jest.fn();
@@ -104,6 +106,7 @@ describe('GitHub Sync', () => {
     setDatabase(mockDb as unknown as Parameters<typeof setDatabase>[0]);
     mockGetAccessToken.mockResolvedValue('test-token');
     mockGetRepository.mockResolvedValue('owner/repo');
+    mockRefreshAccessToken.mockResolvedValue(false);
   });
 
   describe('pushEntries', () => {
@@ -233,6 +236,77 @@ describe('GitHub Sync', () => {
 
       expect(result.pushed).toBe(0);
       expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('should refresh token and retry on 401 error', async () => {
+      mockDb._entries.set(uncommittedEntry.id, { ...uncommittedEntry });
+
+      // Use mockImplementation to return token consistently, then new token after refresh
+      let tokenRefreshed = false;
+      mockGetAccessToken.mockImplementation(async () => {
+        return tokenRefreshed ? 'new-refreshed-token' : 'test-token';
+      });
+
+      // First call: file check returns 404
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      });
+
+      // Second call: PUT returns 401 (token expired)
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+      });
+
+      // After refresh, PUT succeeds (fetchWithAuth retries same request)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          content: { sha: 'newsha123' },
+          commit: { sha: 'commitsha123' },
+        }),
+      });
+
+      // Mock refresh succeeds
+      mockRefreshAccessToken.mockImplementation(async () => {
+        tokenRefreshed = true;
+        return true;
+      });
+
+      const result = await pushEntries();
+
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1);
+      expect(result.success).toBe(true);
+      expect(result.pushed).toBe(1);
+    });
+
+    it('should fail if refresh token is also invalid', async () => {
+      mockDb._entries.set(uncommittedEntry.id, { ...uncommittedEntry });
+
+      // File check returns 404
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      });
+
+      // PUT returns 401
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+      });
+
+      // Refresh fails
+      mockRefreshAccessToken.mockResolvedValueOnce(false);
+
+      const result = await pushEntries();
+
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1);
+      expect(result.success).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]).toContain('401');
     });
   });
 
@@ -406,6 +480,61 @@ updated_at: 2025-01-14T12:00:00Z
       expect(result.success).toBe(true);
       expect(result.created).toBe(0);
       expect(result.updated).toBe(0);
+    });
+
+    it('should refresh token and retry on 401 error', async () => {
+      // Use mockImplementation to return token consistently
+      let tokenRefreshed = false;
+      mockGetAccessToken.mockImplementation(async () => {
+        return tokenRefreshed ? 'new-refreshed-token' : 'test-token';
+      });
+
+      // First call: Tree API returns 401
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+      });
+
+      // After refresh, Tree API succeeds
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          sha: 'treesha',
+          tree: [],
+          truncated: false,
+        }),
+      });
+
+      // Mock refresh succeeds
+      mockRefreshAccessToken.mockImplementation(async () => {
+        tokenRefreshed = true;
+        return true;
+      });
+
+      const result = await pullEntries();
+
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1);
+      expect(result.success).toBe(true);
+    });
+
+    it('should fail if refresh token is also invalid on pull', async () => {
+      // Tree API returns 401
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+      });
+
+      // Refresh fails
+      mockRefreshAccessToken.mockResolvedValueOnce(false);
+
+      const result = await pullEntries();
+
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1);
+      expect(result.success).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]).toContain('401');
     });
   });
 

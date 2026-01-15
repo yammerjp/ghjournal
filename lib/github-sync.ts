@@ -1,11 +1,55 @@
 import * as Crypto from 'expo-crypto';
-import { getAccessToken, getRepository } from './github-auth';
+import { getAccessToken, getRepository, refreshAccessToken } from './github-auth';
 import { getDatabase } from './database';
 import { Entry, saveEntryRaw, getEntryByDate, deleteEntryLocal, isPendingDeletion, getPendingDeletions, removePendingDeletion } from './entry';
 import { entryToMarkdown, markdownToEntry } from './entry-format';
 
 const GITHUB_API_BASE = 'https://api.github.com';
 const ENTRIES_PATH = 'ghjournal/entries';
+
+/**
+ * Token refresh state to track if we've already attempted refresh in current sync
+ */
+let hasAttemptedRefresh = false;
+
+/**
+ * Reset refresh attempt state (call at start of sync operation)
+ */
+function resetRefreshState(): void {
+  hasAttemptedRefresh = false;
+}
+
+/**
+ * GitHub API fetch with automatic 401 retry after token refresh
+ */
+async function fetchWithAuth(
+  url: string,
+  options: RequestInit & { headers: Record<string, string> }
+): Promise<Response> {
+  const response = await fetch(url, options);
+
+  if (response.status === 401 && !hasAttemptedRefresh) {
+    hasAttemptedRefresh = true;
+    const refreshed = await refreshAccessToken();
+
+    if (refreshed) {
+      // Get new token and retry
+      const newToken = await getAccessToken();
+      if (newToken) {
+        const newOptions = {
+          ...options,
+          headers: {
+            ...options.headers,
+            'Authorization': `Bearer ${newToken}`,
+          },
+        };
+        return fetch(url, newOptions);
+      }
+    }
+  }
+
+  return response;
+}
 
 export interface PushResult {
   success: boolean;
@@ -51,6 +95,7 @@ interface ContentResponse {
  */
 export async function pushEntries(): Promise<PushResult> {
   const result: PushResult = { success: true, pushed: 0, deleted: 0, errors: [] };
+  resetRefreshState();
 
   const token = await getAccessToken();
   if (!token) {
@@ -81,11 +126,13 @@ export async function pushEntries(): Promise<PushResult> {
       let currentSha = entry.synced_sha;
       if (!currentSha) {
         // Check if file already exists on remote (might have been created by another device)
-        const checkResponse = await fetch(
+        // Get fresh token in case it was refreshed
+        const currentToken = await getAccessToken();
+        const checkResponse = await fetchWithAuth(
           `${GITHUB_API_BASE}/repos/${repository}/contents/${path}`,
           {
             headers: {
-              'Authorization': `Bearer ${token}`,
+              'Authorization': `Bearer ${currentToken}`,
               'Accept': 'application/vnd.github+json',
               'X-GitHub-Api-Version': '2022-11-28',
             },
@@ -108,12 +155,14 @@ export async function pushEntries(): Promise<PushResult> {
         body.sha = currentSha;
       }
 
-      const response = await fetch(
+      // Get fresh token in case it was refreshed
+      const putToken = await getAccessToken();
+      const response = await fetchWithAuth(
         `${GITHUB_API_BASE}/repos/${repository}/contents/${path}`,
         {
           method: 'PUT',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${putToken}`,
             'Accept': 'application/vnd.github+json',
             'Content-Type': 'application/json',
             'X-GitHub-Api-Version': '2022-11-28',
@@ -129,6 +178,12 @@ export async function pushEntries(): Promise<PushResult> {
       }
 
       if (!response.ok) {
+        // 401 Unauthorized - stop the entire sync, don't continue with other entries
+        if (response.status === 401) {
+          result.success = false;
+          result.errors.push(`認証エラー (401): 再ログインが必要です`);
+          return result;
+        }
         throw new Error(`Failed to push ${entry.date}: ${response.status} ${response.statusText}`);
       }
 
@@ -155,11 +210,12 @@ export async function pushEntries(): Promise<PushResult> {
       const path = `${ENTRIES_PATH}/${deletion.date}.md`;
 
       // Get current sha from remote (might have changed)
-      const checkResponse = await fetch(
+      const checkToken = await getAccessToken();
+      const checkResponse = await fetchWithAuth(
         `${GITHUB_API_BASE}/repos/${repository}/contents/${path}`,
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${checkToken}`,
             'Accept': 'application/vnd.github+json',
             'X-GitHub-Api-Version': '2022-11-28',
           },
@@ -179,12 +235,13 @@ export async function pushEntries(): Promise<PushResult> {
       const existingFile = await checkResponse.json();
 
       // Delete the file from GitHub
-      const deleteResponse = await fetch(
+      const deleteToken = await getAccessToken();
+      const deleteResponse = await fetchWithAuth(
         `${GITHUB_API_BASE}/repos/${repository}/contents/${path}`,
         {
           method: 'DELETE',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': `Bearer ${deleteToken}`,
             'Accept': 'application/vnd.github+json',
             'Content-Type': 'application/json',
             'X-GitHub-Api-Version': '2022-11-28',
@@ -225,6 +282,7 @@ export async function pullEntries(): Promise<PullResult> {
     conflictDates: [],
     errors: [],
   };
+  resetRefreshState();
 
   const token = await getAccessToken();
   if (!token) {
@@ -242,11 +300,12 @@ export async function pullEntries(): Promise<PullResult> {
 
   try {
     // Get tree of all files
-    const treeResponse = await fetch(
+    const treeToken = await getAccessToken();
+    const treeResponse = await fetchWithAuth(
       `${GITHUB_API_BASE}/repos/${repository}/git/trees/main?recursive=1`,
       {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${treeToken}`,
           'Accept': 'application/vnd.github+json',
           'X-GitHub-Api-Version': '2022-11-28',
         },
@@ -255,7 +314,12 @@ export async function pullEntries(): Promise<PullResult> {
 
     // Handle empty repository (no commits yet) - returns 404 or 409
     let treeData: TreeResponse;
-    if (treeResponse.status === 404 || treeResponse.status === 409) {
+    if (treeResponse.status === 401) {
+      // Authentication error - stop immediately
+      result.success = false;
+      result.errors.push(`認証エラー (401): 再ログインが必要です`);
+      return result;
+    } else if (treeResponse.status === 404 || treeResponse.status === 409) {
       // Empty repository - treat as no remote entries
       treeData = { sha: '', tree: [], truncated: false };
     } else if (!treeResponse.ok) {
@@ -302,7 +366,7 @@ export async function pullEntries(): Promise<PullResult> {
         }
 
         // Update local with remote (committed entry, remote changed)
-        const content = await fetchFileContent(token, repository, file.path);
+        const content = await fetchFileContent(repository, file.path);
         const remoteEntry = markdownToEntry(content, localEntry.id);
 
         await saveEntryRaw({
@@ -315,7 +379,7 @@ export async function pullEntries(): Promise<PullResult> {
         result.updated++;
       } else {
         // New entry from remote
-        const content = await fetchFileContent(token, repository, file.path);
+        const content = await fetchFileContent(repository, file.path);
         const newEntry = markdownToEntry(content, Crypto.randomUUID());
 
         await saveEntryRaw({
@@ -353,8 +417,9 @@ export async function pullEntries(): Promise<PullResult> {
 /**
  * Fetch file content from GitHub
  */
-async function fetchFileContent(token: string, repository: string, path: string): Promise<string> {
-  const response = await fetch(
+async function fetchFileContent(repository: string, path: string): Promise<string> {
+  const token = await getAccessToken();
+  const response = await fetchWithAuth(
     `${GITHUB_API_BASE}/repos/${repository}/contents/${path}`,
     {
       headers: {
